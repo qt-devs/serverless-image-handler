@@ -1,8 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import Rekognition from "aws-sdk/clients/rekognition";
-import S3 from "aws-sdk/clients/s3";
+import {
+  DetectFacesResponse,
+  DetectModerationLabelsResponse,
+  DetectModerationLabelsCommand,
+  DetectFacesCommand,
+  RekognitionClient,
+} from "@aws-sdk/client-rekognition";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import sharp, { FormatEnum, OverlayOptions, ResizeOptions } from "sharp";
 
 import {
@@ -21,7 +27,10 @@ import {
 export class ImageHandler {
   private readonly LAMBDA_PAYLOAD_LIMIT = 6 * 1024 * 1024;
 
-  constructor(private readonly s3Client: S3, private readonly rekognitionClient: Rekognition) { }
+  constructor(
+    private readonly s3Client: S3Client,
+    private readonly rekognitionClient: RekognitionClient
+  ) {}
 
   /**
    * Creates a Sharp object from Buffer
@@ -273,9 +282,9 @@ export class ImageHandler {
         typeof edits.smartCrop === "object"
           ? edits.smartCrop
           : {
-            faceIndex: undefined,
-            padding: undefined,
-          };
+              faceIndex: undefined,
+              padding: undefined,
+            };
       const { imageBuffer, format } = await this.getRekognitionCompatibleImage(originalImage);
       const boundingBox = await this.getBoundingBox(imageBuffer.data, faceIndex ?? 0);
       const cropArea = this.getCropArea(boundingBox, padding ?? 0, imageBuffer.info);
@@ -316,6 +325,7 @@ export class ImageHandler {
    * Applies round crop edit.
    * @param originalImage The original sharp image.
    * @param edits The edits to be made to the original image.
+   * @returns {Promise<sharp.Sharp>} original image sharp object
    */
   private async applyRoundCrop(originalImage: sharp.Sharp, edits: ImageEdits): Promise<sharp.Sharp> {
     // round crop can be boolean or object
@@ -324,11 +334,11 @@ export class ImageHandler {
         typeof edits.roundCrop === "object"
           ? edits.roundCrop
           : {
-            top: undefined,
-            left: undefined,
-            rx: undefined,
-            ry: undefined,
-          };
+              top: undefined,
+              left: undefined,
+              rx: undefined,
+              ry: undefined,
+            };
       const imageBuffer = await originalImage.toBuffer({ resolveWithObject: true });
       const width = imageBuffer.info.width;
       const height = imageBuffer.info.height;
@@ -363,7 +373,7 @@ export class ImageHandler {
     originalImage: sharp.Sharp,
     blur: number | undefined,
     moderationLabels: string[],
-    foundContentLabels: Rekognition.DetectModerationLabelsResponse
+    foundContentLabels: DetectModerationLabelsResponse
   ): void {
     const blurValue = blur !== undefined ? Math.ceil(blur) : 50;
 
@@ -393,10 +403,10 @@ export class ImageHandler {
         typeof edits.contentModeration === "object"
           ? edits.contentModeration
           : {
-            minConfidence: undefined,
-            blur: undefined,
-            moderationLabels: undefined,
-          };
+              minConfidence: undefined,
+              blur: undefined,
+              moderationLabels: undefined,
+            };
       const { imageBuffer, format } = await this.getRekognitionCompatibleImage(originalImage);
       const inappropriateContent = await this.detectInappropriateContent(imageBuffer.data, minConfidence);
 
@@ -456,7 +466,7 @@ export class ImageHandler {
     const params = { Bucket: bucket, Key: key };
     try {
       const { width, height } = sourceImageMetadata;
-      const overlayImage: S3.GetObjectOutput = await this.s3Client.getObject(params).promise();
+      const overlayImage = await this.s3Client.send(new GetObjectCommand(params));
       const resizeOptions: ResizeOptions = {
         fit: ImageFitTypes.INSIDE,
       };
@@ -472,9 +482,8 @@ export class ImageHandler {
 
       // If alpha is not within 0-100, the default alpha is 0 (fully opaque).
       const alphaValue = zeroToHundred.test(alpha) ? parseInt(alpha) : 0;
-      const imageBuffer = Buffer.isBuffer(overlayImage.Body)
-        ? overlayImage.Body
-        : Buffer.from(overlayImage.Body as Uint8Array);
+      const imageBuffer = Buffer.from(await overlayImage.Body.transformToByteArray());
+
       return await sharp(imageBuffer)
         .resize(resizeOptions)
         .composite([
@@ -537,7 +546,7 @@ export class ImageHandler {
    * @param boundingBox.Width width of bounding box
    */
   private handleBounds(
-    response: Rekognition.DetectFacesResponse,
+    response: DetectFacesResponse,
     faceIndex: number,
     boundingBox: { Height?: number; Left?: number; Top?: number; Width?: number }
   ): void {
@@ -567,7 +576,8 @@ export class ImageHandler {
     const params = { Image: { Bytes: imageBuffer } };
 
     try {
-      const response = await this.rekognitionClient.detectFaces(params).promise();
+      const command = new DetectFacesCommand(params);
+      const response = await this.rekognitionClient.send(command);
       if (response.FaceDetails.length <= 0) {
         return { height: 1, left: 0, top: 0, width: 1 };
       }
@@ -613,13 +623,14 @@ export class ImageHandler {
   private async detectInappropriateContent(
     imageBuffer: Buffer,
     minConfidence: number | undefined
-  ): Promise<Rekognition.DetectModerationLabelsResponse> {
+  ): Promise<DetectModerationLabelsResponse> {
     try {
       const params = {
         Image: { Bytes: imageBuffer },
         MinConfidence: minConfidence ?? 75,
       };
-      return await this.rekognitionClient.detectModerationLabels(params).promise();
+      const detectModerationLabelsCom = new DetectModerationLabelsCommand(params);
+      return await this.rekognitionClient.send(detectModerationLabelsCom);
     } catch (error) {
       console.error(error);
       throw new ImageHandlerError(
@@ -668,8 +679,8 @@ export class ImageHandler {
    * @returns object containing image buffer data and original image format.
    */
   private async getRekognitionCompatibleImage(image: sharp.Sharp): Promise<RekognitionCompatibleImage> {
-    const sharp_image = sharp(await image.toBuffer()); // Reload sharp image to ensure current metadata
-    const metadata = await sharp_image.metadata();
+    const sharpImage = sharp(await image.toBuffer()); // Reload sharp image to ensure current metadata
+    const metadata = await sharpImage.metadata();
     const format = metadata.format;
     let imageBuffer: { data: Buffer; info: sharp.OutputInfo };
 

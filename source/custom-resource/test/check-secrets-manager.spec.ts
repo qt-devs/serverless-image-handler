@@ -42,11 +42,7 @@ describe("CHECK_SECRETS_MANAGER", () => {
   });
 
   it("Should return success when secrets manager secret and secret's key exists", async () => {
-    mockAwsSecretManager.getSecretValue.mockImplementation(() => ({
-      promise() {
-        return Promise.resolve(secret);
-      },
-    }));
+    mockAwsSecretManager.getSecretValue.mockImplementation(() => Promise.resolve(secret));
 
     const result = await handler(event, mockContext);
 
@@ -100,11 +96,7 @@ describe("CHECK_SECRETS_MANAGER", () => {
   });
 
   it("Should return failed when secret key does not exist", async () => {
-    mockAwsSecretManager.getSecretValue.mockImplementation(() => ({
-      promise() {
-        return Promise.resolve(secret);
-      },
-    }));
+    mockAwsSecretManager.getSecretValue.mockImplementation(() => Promise.resolve(secret));
 
     const resourceProperties = event.ResourceProperties as CheckSecretManagerRequestProperties;
     resourceProperties.SecretsManagerKey = "none-existing-key";
@@ -125,11 +117,9 @@ describe("CHECK_SECRETS_MANAGER", () => {
   });
 
   it("Should return failed when GetSecretValue fails", async () => {
-    mockAwsSecretManager.getSecretValue.mockImplementation(() => ({
-      promise() {
-        return Promise.reject(new CustomResourceError("InternalServerError", "GetSecretValue failed."));
-      },
-    }));
+    mockAwsSecretManager.getSecretValue.mockImplementation(() =>
+      Promise.reject(new CustomResourceError("InternalServerError", "GetSecretValue failed."))
+    );
     (event.ResourceProperties as CheckSecretManagerRequestProperties).SecretsManagerName = "secrets-manager-key";
 
     const result = await handler(event, mockContext);

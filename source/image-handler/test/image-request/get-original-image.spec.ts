@@ -3,8 +3,8 @@
 
 import { mockAwsS3 } from "../mock";
 
-import S3 from "aws-sdk/clients/s3";
-import SecretsManager from "aws-sdk/clients/secretsmanager";
+import { S3 } from "@aws-sdk/client-s3";
+import { SecretsManager } from "@aws-sdk/client-secrets-manager";
 
 import { ImageRequest } from "../../image-request";
 import { ImageHandlerError, StatusCodes } from "../../lib";
@@ -25,11 +25,13 @@ describe("getOriginalImage", () => {
 
   it("Should pass if the proper bucket name and key are supplied, simulating an image file that can be retrieved", async () => {
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -45,11 +47,9 @@ describe("getOriginalImage", () => {
 
   it("Should throw an error if an invalid bucket or key name is provided, simulating a non-existent original image", async () => {
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "SimulatedException"));
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.reject(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "SimulatedException"))
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -68,13 +68,11 @@ describe("getOriginalImage", () => {
 
   it("Should throw an error if an unknown problem happens when getting an object", async () => {
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(
-          new ImageHandlerError(StatusCodes.INTERNAL_SERVER_ERROR, "InternalServerError", "SimulatedException")
-        );
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.reject(
+        new ImageHandlerError(StatusCodes.INTERNAL_SERVER_ERROR, "InternalServerError", "SimulatedException")
+      )
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -104,14 +102,14 @@ describe("getOriginalImage", () => {
       { hex: [0x47, 0x49, 0x46, 0x38], expected: "image/gif" },
     ])("Should pass and infer $expected content type if there is no extension", async ({ hex, expected }) => {
       // Mock
-      mockAwsS3.getObject.mockImplementationOnce(() => ({
-        promise() {
-          return Promise.resolve({
-            ContentType: contentType,
-            Body: Buffer.from(new Uint8Array(hex)),
-          });
-        },
-      }));
+      mockAwsS3.getObject.mockImplementationOnce(() =>
+        Promise.resolve({
+          ContentType: contentType,
+          Body: {
+            transformToByteArray: () => Promise.resolve(new Uint8Array(hex)),
+          },
+        })
+      );
 
       // Act
       const imageRequest = new ImageRequest(s3Client, secretProvider);

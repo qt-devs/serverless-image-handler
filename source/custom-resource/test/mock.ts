@@ -8,7 +8,7 @@ export const mockAwsEc2 = {
 };
 
 jest.mock("@aws-sdk/client-ec2", () => ({
-  EC2: jest.fn(() => ({ ...mockAwsEc2 }))
+  EC2: jest.fn(() => ({ ...mockAwsEc2 })),
 }));
 
 export const mockAwsS3 = {
@@ -23,7 +23,7 @@ export const mockAwsS3 = {
 };
 
 jest.mock("@aws-sdk/client-s3", () => ({
-  S3: jest.fn(() => ({ ...mockAwsS3 }))
+  S3: jest.fn(() => ({ ...mockAwsS3 })),
 }));
 
 export const mockAwsSecretManager = {
@@ -31,7 +31,7 @@ export const mockAwsSecretManager = {
 };
 
 jest.mock("@aws-sdk/client-secrets-manager", () => ({
-  SecretsManager: jest.fn(() => ({ ...mockAwsSecretManager }))
+  SecretsManager: jest.fn(() => ({ ...mockAwsSecretManager })),
 }));
 
 export const mockAxios = {

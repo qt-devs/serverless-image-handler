@@ -45,16 +45,10 @@ describe("COPY_S3_ASSETS", () => {
   });
 
   it("Should return success to copy S3 assets", async () => {
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: JSON.stringify(manifest) });
-      },
-    }));
-    mockAwsS3.copyObject.mockImplementation(() => ({
-      promise() {
-        return Promise.resolve({ CopyObjectResult: "Success" });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({ Body: { transformToString: () => Promise.resolve(JSON.stringify(manifest)) } })
+    );
+    mockAwsS3.copyObject.mockImplementation(() => Promise.resolve({ CopyObjectResult: "Success" }));
 
     const result = await handler(event, mockContext);
     const resourceProperties = event.ResourceProperties as CopyS3AssetsRequestProperties;
@@ -72,11 +66,9 @@ describe("COPY_S3_ASSETS", () => {
   });
 
   it("Should return failed when getting manifest fails", async () => {
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(new CustomResourceError(null, "GetObject failed."));
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.reject(new CustomResourceError(null, "GetObject failed."))
+    );
 
     const result = await handler(event, mockContext);
 
@@ -95,16 +87,12 @@ describe("COPY_S3_ASSETS", () => {
   });
 
   it("Should return failed when copying assets fails", async () => {
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: JSON.stringify(manifest) });
-      },
-    }));
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(new CustomResourceError(null, "CopyObject failed."));
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({ Body: { transformToString: () => Promise.resolve(JSON.stringify(manifest)) } })
+    );
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.reject(new CustomResourceError(null, "CopyObject failed."))
+    );
 
     const result = await handler(event, mockContext);
 
@@ -123,21 +111,13 @@ describe("COPY_S3_ASSETS", () => {
   });
 
   it("Should retry and return success IAM policy if not ready so S3 API returns AccessDenied", async () => {
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(new CustomResourceError(ErrorCodes.ACCESS_DENIED, null));
-      },
-    }));
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: JSON.stringify(manifest) });
-      },
-    }));
-    mockAwsS3.copyObject.mockImplementation(() => ({
-      promise() {
-        return Promise.resolve({ CopyObjectResult: "Success" });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.reject(new CustomResourceError(ErrorCodes.ACCESS_DENIED, null))
+    );
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({ Body: { transformToString: () => Promise.resolve(JSON.stringify(manifest)) } })
+    );
+    mockAwsS3.copyObject.mockImplementation(() => Promise.resolve({ CopyObjectResult: "Success" }));
 
     const result = await handler(event, mockContext);
 

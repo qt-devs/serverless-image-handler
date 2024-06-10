@@ -1,9 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import Rekognition from "aws-sdk/clients/rekognition";
-import S3 from "aws-sdk/clients/s3";
-import SecretsManager from "aws-sdk/clients/secretsmanager";
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 
 import { getOptions } from "../solution-utils/get-options";
 import { isNullOrWhiteSpace } from "../solution-utils/helpers";
@@ -13,9 +13,9 @@ import { Headers, ImageHandlerEvent, ImageHandlerExecutionResult, StatusCodes } 
 import { SecretProvider } from "./secret-provider";
 
 const awsSdkOptions = getOptions();
-const s3Client = new S3(awsSdkOptions);
-const rekognitionClient = new Rekognition(awsSdkOptions);
-const secretsManagerClient = new SecretsManager(awsSdkOptions);
+const s3Client = new S3Client(awsSdkOptions);
+const rekognitionClient = new RekognitionClient(awsSdkOptions);
+const secretsManagerClient = new SecretsManagerClient(awsSdkOptions);
 const secretProvider = new SecretProvider(secretsManagerClient);
 
 /**
@@ -65,23 +65,24 @@ export async function handler(event: ImageHandlerEvent): Promise<ImageHandlerExe
       !isNullOrWhiteSpace(DEFAULT_FALLBACK_IMAGE_KEY)
     ) {
       try {
-        const defaultFallbackImage = await s3Client
-          .getObject({
+        const defaultFallbackImage = await s3Client.send(
+          new GetObjectCommand({
             Bucket: DEFAULT_FALLBACK_IMAGE_BUCKET,
             Key: DEFAULT_FALLBACK_IMAGE_KEY,
           })
-          .promise();
+        );
 
         const headers = getResponseHeaders(false, isAlb);
         headers["Content-Type"] = defaultFallbackImage.ContentType;
         headers["Last-Modified"] = defaultFallbackImage.LastModified;
         headers["Cache-Control"] = "max-age=31536000,public";
 
+        const bodyStr = await defaultFallbackImage.Body.transformToString("base64");
         return {
           statusCode: error.status ? error.status : StatusCodes.INTERNAL_SERVER_ERROR,
           isBase64Encoded: true,
           headers,
-          body: defaultFallbackImage.Body.toString("base64"),
+          body: bodyStr,
         };
       } catch (error) {
         console.error("Error occurred while getting the default fallback image.", error);

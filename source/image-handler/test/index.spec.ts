@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import fs from "fs";
-
-import { mockAwsS3 } from "./mock";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { createStreamMixin, mockAwsS3 } from "./mock";
 
 import { handler } from "../index";
 import { ImageHandlerError, ImageHandlerEvent, StatusCodes } from "../lib";
+import { sdkStreamMixin } from "@smithy/util-stream";
+import { Readable } from "stream";
 
 describe("index", () => {
   // Arrange
@@ -16,11 +18,16 @@ describe("index", () => {
 
   it("should return the image when there is no error", async () => {
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: mockImage, ContentType: "image/jpeg" });
-      },
-    }));
+    mockAwsS3
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .resolvesOnce({
+        Body: createStreamMixin(mockImage),
+        ContentType: "image/jpeg",
+      });
+
     // Arrange
     const event: ImageHandlerEvent = { path: "/test.jpg" };
 
@@ -42,20 +49,21 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenCalledWith({
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
     expect(result).toEqual(expectedResult);
   });
 
   it("should return the image with custom headers when custom headers are provided", async () => {
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: mockImage, ContentType: "image/jpeg" });
-      },
-    }));
+    mockAwsS3
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .resolvesOnce({
+        Body: createStreamMixin(mockImage),
+        ContentType: "image/jpeg",
+      });
+
     // Arrange
     const event: ImageHandlerEvent = {
       path: "/eyJidWNrZXQiOiJzb3VyY2UtYnVja2V0Iiwia2V5IjoidGVzdC5qcGciLCJoZWFkZXJzIjp7IkN1c3RvbS1IZWFkZXIiOiJDdXN0b21WYWx1ZSJ9fQ==",
@@ -80,20 +88,21 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenCalledWith({
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
     expect(result).toEqual(expectedResult);
   });
 
   it("should return the image when the request is from ALB", async () => {
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: mockImage, ContentType: "image/jpeg" });
-      },
-    }));
+    mockAwsS3
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .resolvesOnce({
+        Body: createStreamMixin(mockImage),
+        ContentType: "image/jpeg",
+      });
+
     // Arrange
     const event: ImageHandlerEvent = {
       path: "/test.jpg",
@@ -119,10 +128,6 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenCalledWith({
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
     expect(result).toEqual(expectedResult);
   });
 
@@ -130,11 +135,12 @@ describe("index", () => {
     // Arrange
     const event: ImageHandlerEvent = { path: "/test.jpg" };
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
-      },
-    }));
+    mockAwsS3
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .rejectsOnce(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
 
     // Act
     const result = await handler(event);
@@ -155,10 +161,6 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenCalledWith({
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
     expect(result).toEqual(expectedResult);
   });
 
@@ -169,11 +171,15 @@ describe("index", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: mockImage, ContentType: "image/jpeg" });
-      },
-    }));
+    mockAwsS3
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .resolvesOnce({
+        Body: createStreamMixin(mockImage),
+        ContentType: "image/jpeg",
+      });
 
     // Act
     const result = await handler(event);
@@ -194,10 +200,6 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenCalledWith({
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
     expect(result).toEqual(expectedResult);
   });
 
@@ -211,21 +213,21 @@ describe("index", () => {
     const event: ImageHandlerEvent = { path: "/test.jpg" };
 
     // Mock
-    mockAwsS3.getObject.mockReset();
-    mockAwsS3.getObject
-      .mockImplementationOnce(() => ({
-        promise() {
-          return Promise.reject(new ImageHandlerError(StatusCodes.INTERNAL_SERVER_ERROR, "UnknownError", null));
-        },
-      }))
-      .mockImplementationOnce(() => ({
-        promise() {
-          return Promise.resolve({
-            Body: mockFallbackImage,
-            ContentType: "image/png",
-          });
-        },
-      }));
+    mockAwsS3
+      .reset()
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .rejects(new ImageHandlerError(StatusCodes.INTERNAL_SERVER_ERROR, "UnknownError", null))
+      .on(GetObjectCommand, {
+        Bucket: "fallback-image-bucket",
+        Key: "fallback-image.png",
+      })
+      .resolves({
+        Body: createStreamMixin(mockFallbackImage),
+        ContentType: "image/jpeg",
+      });
 
     // Act
     const result = await handler(event);
@@ -245,14 +247,6 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenNthCalledWith(1, {
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
-    expect(mockAwsS3.getObject).toHaveBeenNthCalledWith(2, {
-      Bucket: "fallback-image-bucket",
-      Key: "fallback-image.png",
-    });
     expect(result).toEqual(expectedResult);
   });
 
@@ -263,12 +257,13 @@ describe("index", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockReset();
-    mockAwsS3.getObject.mockImplementation(() => ({
-      promise() {
-        return Promise.reject(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
-      },
-    }));
+    mockAwsS3
+      .reset()
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .rejectsOnce(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
 
     // Act
     const result = await handler(event);
@@ -290,14 +285,7 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenNthCalledWith(1, {
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
-    expect(mockAwsS3.getObject).toHaveBeenNthCalledWith(2, {
-      Bucket: "fallback-image-bucket",
-      Key: "fallback-image.png",
-    });
+
     expect(result).toEqual(expectedResult);
   });
 
@@ -307,11 +295,13 @@ describe("index", () => {
     const event: ImageHandlerEvent = { path: "/test.jpg" };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
-      },
-    }));
+    mockAwsS3
+      .reset()
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .rejectsOnce(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
 
     // Act
     const result = await handler(event);
@@ -333,10 +323,6 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenCalledWith({
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
     expect(result).toEqual(expectedResult);
   });
 
@@ -346,11 +332,13 @@ describe("index", () => {
     const event: ImageHandlerEvent = { path: "/test.jpg" };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
-      },
-    }));
+    mockAwsS3
+      .reset()
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .rejectsOnce(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
 
     // Act
     const result = await handler(event);
@@ -372,10 +360,6 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenCalledWith({
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
     expect(result).toEqual(expectedResult);
   });
 
@@ -389,11 +373,13 @@ describe("index", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
-      },
-    }));
+    mockAwsS3
+      .reset()
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .rejectsOnce(new ImageHandlerError(StatusCodes.NOT_FOUND, "NoSuchKey", "NoSuchKey error happened."));
 
     // Act
     const result = await handler(event);
@@ -414,10 +400,6 @@ describe("index", () => {
     };
 
     // Assert
-    expect(mockAwsS3.getObject).toHaveBeenCalledWith({
-      Bucket: "source-bucket",
-      Key: "test.jpg",
-    });
     expect(result).toEqual(expectedResult);
   });
 
@@ -432,13 +414,16 @@ describe("index", () => {
     const baseImage = fs.readFileSync("./test/image/transparent-10x10.jpeg");
 
     // Mock
-    mockAwsS3.getObject.mockImplementation((data) => ({
-      promise() {
-        return Promise.resolve({
-          Body: data.Key === "transparent-10x10.png" ? overlayImage : baseImage,
-        });
-      },
-    }));
+    mockAwsS3
+      .reset()
+      .on(GetObjectCommand, {
+        Bucket: "source-bucket",
+        Key: "test.jpg",
+      })
+      .resolvesOnce({
+        Body: createStreamMixin(data.Key === "transparent-10x10.png" ? overlayImage : baseImage),
+        ContentType: "image/jpeg",
+      });
 
     // Act
     const result = await handler(event);

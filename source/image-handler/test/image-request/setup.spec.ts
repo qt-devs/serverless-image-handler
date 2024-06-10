@@ -3,8 +3,8 @@
 
 import { mockAwsS3, mockAwsSecretManager } from "../mock";
 
-import S3 from "aws-sdk/clients/s3";
-import SecretsManager from "aws-sdk/clients/secretsmanager";
+import { S3 } from "@aws-sdk/client-s3";
+import { SecretsManager } from "@aws-sdk/client-secrets-manager";
 
 import { ImageRequest } from "../../image-request";
 import { ImageHandlerError, RequestTypes, StatusCodes } from "../../lib";
@@ -35,11 +35,13 @@ describe("setup", () => {
     process.env.SOURCE_BUCKETS = "validBucket, validBucket2";
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -71,11 +73,13 @@ describe("setup", () => {
     process.env = { SOURCE_BUCKETS: "validBucket, validBucket2" };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -106,11 +110,13 @@ describe("setup", () => {
     process.env.SOURCE_BUCKETS = "validBucket, validBucket2";
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -139,11 +145,13 @@ describe("setup", () => {
     process.env.SOURCE_BUCKETS = "allowedBucket001, allowedBucket002";
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -174,11 +182,13 @@ describe("setup", () => {
     process.env.SOURCE_BUCKETS = "allowedBucket001, allowedBucket002";
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -217,17 +227,17 @@ describe("setup", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          CacheControl: "max-age=300,public",
-          ContentType: "custom-type",
-          Expires: "Tue, 24 Dec 2019 13:46:28 GMT",
-          LastModified: "Sat, 19 Dec 2009 16:30:47 GMT",
-          Body: Buffer.from("SampleImageContent\n"),
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        CacheControl: "max-age=300,public",
+        ContentType: "custom-type",
+        Expires: "Tue, 24 Dec 2019 13:46:28 GMT",
+        LastModified: "Sat, 19 Dec 2009 16:30:47 GMT",
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -267,17 +277,17 @@ describe("setup", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          CacheControl: "max-age=300,public",
-          ContentType: "custom-type",
-          Expires: "Tue, 24 Dec 2019 13:46:28 GMT",
-          LastModified: "Sat, 19 Dec 2009 16:30:47 GMT",
-          Body: Buffer.from("SampleImageContent\n"),
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        CacheControl: "max-age=300,public",
+        ContentType: "custom-type",
+        Expires: "Tue, 24 Dec 2019 13:46:28 GMT",
+        LastModified: "Sat, 19 Dec 2009 16:30:47 GMT",
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -341,20 +351,20 @@ describe("setup", () => {
       };
 
       // Mock
-      mockAwsS3.getObject.mockImplementationOnce(() => ({
-        promise() {
-          return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-        },
-      }));
-      mockAwsSecretManager.getSecretValue.mockImplementationOnce(() => ({
-        promise() {
-          return Promise.resolve({
-            SecretString: JSON.stringify({
-              [process.env.SECRET_KEY]: "secret",
-            }),
-          });
-        },
-      }));
+      mockAwsS3.getObject.mockImplementationOnce(() =>
+        Promise.resolve({
+          Body: {
+            transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+          },
+        })
+      );
+      mockAwsSecretManager.getSecretValue.mockImplementationOnce(() =>
+        Promise.resolve({
+          SecretString: JSON.stringify({
+            [process.env.SECRET_KEY]: "secret",
+          }),
+        })
+      );
 
       // Act
       const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -432,15 +442,13 @@ describe("setup", () => {
       };
 
       // Mock
-      mockAwsSecretManager.getSecretValue.mockImplementationOnce(() => ({
-        promise() {
-          return Promise.resolve({
-            SecretString: JSON.stringify({
-              [process.env.SECRET_KEY]: "secret",
-            }),
-          });
-        },
-      }));
+      mockAwsSecretManager.getSecretValue.mockImplementationOnce(() =>
+        Promise.resolve({
+          SecretString: JSON.stringify({
+            [process.env.SECRET_KEY]: "secret",
+          }),
+        })
+      );
 
       // Act
       const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -469,13 +477,11 @@ describe("setup", () => {
       };
 
       // Mock
-      mockAwsSecretManager.getSecretValue.mockImplementationOnce(() => ({
-        promise() {
-          return Promise.reject(
-            new ImageHandlerError(StatusCodes.INTERNAL_SERVER_ERROR, "InternalServerError", "SimulatedError")
-          );
-        },
-      }));
+      mockAwsSecretManager.getSecretValue.mockImplementationOnce(() =>
+        Promise.reject(
+          new ImageHandlerError(StatusCodes.INTERNAL_SERVER_ERROR, "InternalServerError", "SimulatedError")
+        )
+      );
 
       // Act
       const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -508,14 +514,14 @@ describe("setup", () => {
       };
 
       // Mock
-      mockAwsS3.getObject.mockImplementationOnce(() => ({
-        promise() {
-          return Promise.resolve({
-            ContentType: "image/svg+xml",
-            Body: Buffer.from("SampleImageContent\n"),
-          });
-        },
-      }));
+      mockAwsS3.getObject.mockImplementationOnce(() =>
+        Promise.resolve({
+          ContentType: "image/svg+xml",
+          Body: {
+            transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+          },
+        })
+      );
 
       // Act
       const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -545,14 +551,14 @@ describe("setup", () => {
       };
 
       // Mock
-      mockAwsS3.getObject.mockImplementationOnce(() => ({
-        promise() {
-          return Promise.resolve({
-            ContentType: "image/svg+xml",
-            Body: Buffer.from("SampleImageContent\n"),
-          });
-        },
-      }));
+      mockAwsS3.getObject.mockImplementationOnce(() =>
+        Promise.resolve({
+          ContentType: "image/svg+xml",
+          Body: {
+            transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+          },
+        })
+      );
 
       // Act
       const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -583,14 +589,14 @@ describe("setup", () => {
       };
 
       // Mock
-      mockAwsS3.getObject.mockImplementationOnce(() => ({
-        promise() {
-          return Promise.resolve({
-            ContentType: "image/svg+xml",
-            Body: Buffer.from("SampleImageContent\n"),
-          });
-        },
-      }));
+      mockAwsS3.getObject.mockImplementationOnce(() =>
+        Promise.resolve({
+          ContentType: "image/svg+xml",
+          Body: {
+            transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+          },
+        })
+      );
 
       // Act
       const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -623,11 +629,13 @@ describe("setup", () => {
     process.env.SOURCE_BUCKETS = "validBucket, validBucket2";
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -658,11 +666,13 @@ describe("setup", () => {
     process.env.SOURCE_BUCKETS = "test, validBucket, validBucket2";
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -694,11 +704,13 @@ describe("setup", () => {
     process.env.SOURCE_BUCKETS = "test, validBucket, validBucket2";
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -730,11 +742,13 @@ describe("setup", () => {
     process.env.SOURCE_BUCKETS = "test, validBucket, validBucket2";
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);
@@ -766,11 +780,13 @@ describe("setup", () => {
     process.env.SOURCE_BUCKETS = "test, validBucket, validBucket2";
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: Buffer.from("SampleImageContent\n") });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new TextEncoder().encode("SampleImageContent\n")),
+        },
+      })
+    );
 
     // Act
     const imageRequest = new ImageRequest(s3Client, secretProvider);

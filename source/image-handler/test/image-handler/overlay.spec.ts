@@ -3,8 +3,8 @@
 
 import { mockAwsS3 } from "../mock";
 
-import Rekognition from "aws-sdk/clients/rekognition";
-import S3 from "aws-sdk/clients/s3";
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import { S3 } from "@aws-sdk/client-s3";
 import fs from "fs";
 import sharp from "sharp";
 
@@ -12,7 +12,7 @@ import { ImageHandler } from "../../image-handler";
 import { ImageEdits, ImageHandlerError, StatusCodes, ImageRequestInfo, RequestTypes } from "../../lib";
 
 const s3Client = new S3();
-const rekognitionClient = new Rekognition();
+const rekognitionClient = new RekognitionClient();
 
 describe("overlay", () => {
   beforeEach(() => {
@@ -35,16 +35,21 @@ describe("overlay", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-            "base64"
-          ),
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () =>
+            Promise.resolve(
+              new Uint8Array(
+                Buffer.from(
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                  "base64"
+                )
+              )
+            ),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -74,16 +79,21 @@ describe("overlay", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-            "base64"
-          ),
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () =>
+            Promise.resolve(
+              new Uint8Array(
+                Buffer.from(
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                  "base64"
+                )
+              )
+            ),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -113,16 +123,21 @@ describe("overlay", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-            "base64"
-          ),
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () =>
+            Promise.resolve(
+              new Uint8Array(
+                Buffer.from(
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                  "base64"
+                )
+              )
+            ),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -152,16 +167,21 @@ describe("overlay", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-            "base64"
-          ),
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () =>
+            Promise.resolve(
+              new Uint8Array(
+                Buffer.from(
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                  "base64"
+                )
+              )
+            ),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -189,11 +209,13 @@ describe("overlay", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: overlayImage });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -226,16 +248,21 @@ describe("overlay", () => {
     };
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-            "base64"
-          ),
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () =>
+            Promise.resolve(
+              new Uint8Array(
+                Buffer.from(
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                  "base64"
+                )
+              )
+            ),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -251,16 +278,21 @@ describe("overlay", () => {
 
   it("Should pass if the proper bucket name and key are supplied, simulating an image file that can be retrieved", async () => {
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-            "base64"
-          ),
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () =>
+            Promise.resolve(
+              new Uint8Array(
+                Buffer.from(
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                  "base64"
+                )
+              )
+            ),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -288,11 +320,13 @@ describe("overlay", () => {
   it("Should pass and do not throw an exception that the overlay image dimensions are not integer numbers", async () => {
     // Mock
     const originalImage = fs.readFileSync("./test/image/25x15.png");
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ Body: originalImage });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(originalImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -307,17 +341,15 @@ describe("overlay", () => {
 
   it("Should throw an error if an invalid bucket or key name is provided, simulating a nonexistent overlay image", async () => {
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(
-          new ImageHandlerError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            "InternalServerError",
-            "SimulatedInvalidParameterException"
-          )
-        );
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.reject(
+        new ImageHandlerError(
+          StatusCodes.INTERNAL_SERVER_ERROR,
+          "InternalServerError",
+          "SimulatedInvalidParameterException"
+        )
+      )
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -444,13 +476,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/25x15.png");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -479,13 +511,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/25x15.png");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -514,13 +546,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/aws_logo.png");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -549,13 +581,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/transparent-10x10.png");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -584,13 +616,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/transparent-10x10.png");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -620,13 +652,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/transparent-10x10.jpeg");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -655,13 +687,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/transparent-10x5.jpeg");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -690,13 +722,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/transparent-10x10.jpeg");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -725,13 +757,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/transparent-10x10.jpeg");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -760,13 +792,13 @@ describe("overlay-dimensions", () => {
     const overlayImage = fs.readFileSync("./test/image/transparent-10x10.jpeg");
 
     // Mock
-    mockAwsS3.getObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          Body: overlayImage,
-        });
-      },
-    }));
+    mockAwsS3.getObject.mockImplementationOnce(() =>
+      Promise.resolve({
+        Body: {
+          transformToByteArray: () => Promise.resolve(new Uint8Array(overlayImage)),
+        },
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);

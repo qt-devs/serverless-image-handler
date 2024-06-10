@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import S3 from "aws-sdk/clients/s3";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { createHmac } from "crypto";
 
 import {
@@ -30,7 +30,10 @@ type OriginalImageInfo = Partial<{
 export class ImageRequest {
   private static readonly DEFAULT_EFFORT = 4;
 
-  constructor(private readonly s3Client: S3, private readonly secretProvider: SecretProvider) { }
+  constructor(
+    private readonly s3Client: S3Client,
+    private readonly secretProvider: SecretProvider
+  ) {}
 
   /**
    * Determines the output format of an image
@@ -154,8 +157,8 @@ export class ImageRequest {
       const result: OriginalImageInfo = {};
 
       const imageLocation = { Bucket: bucket, Key: key };
-      const originalImage = await this.s3Client.getObject(imageLocation).promise();
-      const imageBuffer = Buffer.from(originalImage.Body as Uint8Array);
+      const originalImage = await this.s3Client.send(new GetObjectCommand(imageLocation));
+      const imageBuffer = Buffer.from(await originalImage.Body.transformToByteArray());
 
       if (originalImage.ContentType) {
         // If using default S3 ContentType infer from hex headers

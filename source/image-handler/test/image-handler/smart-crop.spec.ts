@@ -3,15 +3,15 @@
 
 import { mockAwsRekognition } from "../mock";
 
-import Rekognition from "aws-sdk/clients/rekognition";
-import S3 from "aws-sdk/clients/s3";
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import { S3 } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 
 import { ImageHandler } from "../../image-handler";
 import { BoundingBox, BoxSize, ImageEdits, ImageHandlerError, StatusCodes } from "../../lib";
 
 const s3Client = new S3();
-const rekognitionClient = new Rekognition();
+const rekognitionClient = new RekognitionClient();
 
 describe("smartCrop", () => {
   it("Should pass if an edit with the smartCrop keyname is passed to the function", async () => {
@@ -25,17 +25,15 @@ describe("smartCrop", () => {
     const edits: ImageEdits = { smartCrop: { faceIndex: 0, padding: 0 } };
 
     // Mock
-    mockAwsRekognition.detectFaces.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          FaceDetails: [
-            {
-              BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
-            },
-          ],
-        });
-      },
-    }));
+    mockAwsRekognition.detectFaces.mockImplementationOnce(() =>
+      Promise.resolve({
+        FaceDetails: [
+          {
+            BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
+          },
+        ],
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -57,21 +55,19 @@ describe("smartCrop", () => {
     const image = sharp(originalImage, { failOnError: false }).withMetadata();
     const edits: ImageEdits = {
       toFormat: "webp",
-      smartCrop: { padding: 60 }
+      smartCrop: { padding: 60 },
     };
 
     // Mock
-    mockAwsRekognition.detectFaces.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          FaceDetails: [
-            {
-              BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
-            },
-          ],
-        });
-      },
-    }));
+    mockAwsRekognition.detectFaces.mockImplementationOnce(() =>
+      Promise.resolve({
+        FaceDetails: [
+          {
+            BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
+          },
+        ],
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -92,17 +88,15 @@ describe("smartCrop", () => {
     const edits: ImageEdits = { smartCrop: { faceIndex: 0, padding: 80 } };
 
     // Mock
-    mockAwsRekognition.detectFaces.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          FaceDetails: [
-            {
-              BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
-            },
-          ],
-        });
-      },
-    }));
+    mockAwsRekognition.detectFaces.mockImplementationOnce(() =>
+      Promise.resolve({
+        FaceDetails: [
+          {
+            BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
+          },
+        ],
+      })
+    );
 
     // Act
     try {
@@ -133,17 +127,15 @@ describe("smartCrop", () => {
     const edits: ImageEdits = { smartCrop: { faceIndex: 10, padding: 0 } };
 
     // Mock
-    mockAwsRekognition.detectFaces.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          FaceDetails: [
-            {
-              BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
-            },
-          ],
-        });
-      },
-    }));
+    mockAwsRekognition.detectFaces.mockImplementationOnce(() =>
+      Promise.resolve({
+        FaceDetails: [
+          {
+            BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
+          },
+        ],
+      })
+    );
 
     // Act
     try {
@@ -174,17 +166,15 @@ describe("smartCrop", () => {
     const edits: ImageEdits = { smartCrop: true };
 
     // Mock
-    mockAwsRekognition.detectFaces.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          FaceDetails: [
-            {
-              BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
-            },
-          ],
-        });
-      },
-    }));
+    mockAwsRekognition.detectFaces.mockImplementationOnce(() =>
+      Promise.resolve({
+        FaceDetails: [
+          {
+            BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
+          },
+        ],
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -251,17 +241,15 @@ describe("smartCrop", () => {
     const faceIndex = 0;
 
     // Mock
-    mockAwsRekognition.detectFaces.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          FaceDetails: [
-            {
-              BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
-            },
-          ],
-        });
-      },
-    }));
+    mockAwsRekognition.detectFaces.mockImplementationOnce(() =>
+      Promise.resolve({
+        FaceDetails: [
+          {
+            BoundingBox: { Height: 0.18, Left: 0.55, Top: 0.33, Width: 0.23 },
+          },
+        ],
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -286,13 +274,9 @@ describe("smartCrop", () => {
     const faceIndex = 0;
 
     // Mock
-    mockAwsRekognition.detectFaces.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(
-          new ImageHandlerError(StatusCodes.INTERNAL_SERVER_ERROR, "InternalServerError", "SimulatedError")
-        );
-      },
-    }));
+    mockAwsRekognition.detectFaces.mockImplementationOnce(() =>
+      Promise.reject(new ImageHandlerError(StatusCodes.INTERNAL_SERVER_ERROR, "InternalServerError", "SimulatedError"))
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -317,11 +301,7 @@ describe("smartCrop", () => {
     const faceIndex = 0;
 
     // Mock
-    mockAwsRekognition.detectFaces.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ FaceDetails: [] });
-      },
-    }));
+    mockAwsRekognition.detectFaces.mockImplementationOnce(() => Promise.resolve({ FaceDetails: [] }));
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -346,17 +326,15 @@ describe("smartCrop", () => {
     const faceIndex = 0;
 
     // Mock
-    mockAwsRekognition.detectFaces.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          FaceDetails: [
-            {
-              BoundingBox: { Height: 1, Left: 0.5, Top: 0.3, Width: 0.65 },
-            },
-          ],
-        });
-      },
-    }));
+    mockAwsRekognition.detectFaces.mockImplementationOnce(() =>
+      Promise.resolve({
+        FaceDetails: [
+          {
+            BoundingBox: { Height: 1, Left: 0.5, Top: 0.3, Width: 0.65 },
+          },
+        ],
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);

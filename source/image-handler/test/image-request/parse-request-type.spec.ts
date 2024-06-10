@@ -3,8 +3,8 @@
 
 import { consoleInfoSpy } from "../mock";
 
-import S3 from "aws-sdk/clients/s3";
-import SecretsManager from "aws-sdk/clients/secretsmanager";
+import { S3 } from "@aws-sdk/client-s3";
+import { SecretsManager } from "@aws-sdk/client-secrets-manager";
 
 import { ImageRequest } from "../../image-request";
 import { RequestTypes, StatusCodes } from "../../lib";

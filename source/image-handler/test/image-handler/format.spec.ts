@@ -1,8 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import Rekognition from "aws-sdk/clients/rekognition";
-import S3 from "aws-sdk/clients/s3";
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import { S3 } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 import fs from "fs";
 
@@ -10,7 +10,7 @@ import { ImageHandler } from "../../image-handler";
 import { ImageFormatTypes, ImageRequestInfo, RequestTypes } from "../../lib";
 
 const s3Client = new S3();
-const rekognitionClient = new Rekognition();
+const rekognitionClient = new RekognitionClient();
 const image = fs.readFileSync("./test/image/25x15.png");
 
 describe("format", () => {

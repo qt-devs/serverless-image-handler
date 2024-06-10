@@ -213,7 +213,7 @@ exports[`Serverless Image Handler Stack Snapshot 1`] = `
         "Yes",
         "No",
       ],
-      "Default": "No",
+      "Default": "Yes",
       "Description": "Would you like to enable automatic WebP based on accept headers? Select 'Yes' if so.",
       "Type": "String",
     },
@@ -251,7 +251,7 @@ exports[`Serverless Image Handler Stack Snapshot 1`] = `
         "Yes",
         "No",
       ],
-      "Default": "Yes",
+      "Default": "No",
       "Description": "Would you like to deploy a demo UI to explore the features and capabilities of this solution? This will create an additional Amazon S3 bucket and Amazon CloudFront distribution in your account.",
       "Type": "String",
     },
@@ -303,7 +303,7 @@ exports[`Serverless Image Handler Stack Snapshot 1`] = `
         "1827",
         "3653",
       ],
-      "Default": "1",
+      "Default": "7",
       "Description": "This solution automatically logs events to Amazon CloudWatch. Select the amount of time for CloudWatch logs from this solution to be retained (in days).",
       "Type": "Number",
     },
@@ -1181,7 +1181,7 @@ exports[`Serverless Image Handler Stack Snapshot 1`] = `
           },
         },
         "Handler": "index.handler",
-        "MemorySize": 1024,
+        "MemorySize": 1536,
         "Role": {
           "Fn::GetAtt": [
             "BackEndImageHandlerFunctionRoleABF81E5C",
@@ -1276,7 +1276,7 @@ exports[`Serverless Image Handler Stack Snapshot 1`] = `
     "CommonResourcesCustomResourcesCustomResourceAnonymousMetric51363F57": {
       "DeletionPolicy": "Delete",
       "Properties": {
-        "AnonymousData": "Yes",
+        "AnonymousData": "No",
         "AutoWebP": {
           "Ref": "AutoWebPParameter",
         },

@@ -1,14 +1,19 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { DescribeRegionsCommandInput, EC2 } from "@aws-sdk/client-ec2";
+import { DescribeRegionsCommand, EC2Client } from "@aws-sdk/client-ec2";
 import {
-  CreateBucketCommandInput,
-  PutBucketEncryptionCommandInput,
-  PutBucketPolicyCommandInput,
-  S3,
+  GetObjectCommand,
+  CreateBucketCommand,
+  PutBucketEncryptionCommand,
+  HeadObjectCommand,
+  PutBucketPolicyCommand,
+  HeadBucketCommand,
+  PutObjectCommand,
+  CopyObjectCommand,
+  S3Client,
 } from "@aws-sdk/client-s3";
-import { SecretsManager } from "@aws-sdk/client-secrets-manager";
+import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import axios, { RawAxiosRequestConfig, AxiosResponse } from "axios";
 import { createHash } from "crypto";
 import moment from "moment";
@@ -37,9 +42,9 @@ import {
 } from "./lib";
 
 const awsSdkOptions = getOptions();
-const s3Client = new S3(awsSdkOptions);
-const ec2Client = new EC2(awsSdkOptions);
-const secretsManager = new SecretsManager(awsSdkOptions);
+const s3Client = new S3Client(awsSdkOptions);
+const ec2Client = new EC2Client(awsSdkOptions);
+const secretsManager = new SecretsManagerClient(awsSdkOptions);
 
 const { SOLUTION_ID, SOLUTION_VERSION, AWS_REGION, RETRY_SECONDS } = process.env;
 const METRICS_ENDPOINT = "https://metrics.awssolutionsbuilder.com/generic";
@@ -339,18 +344,18 @@ async function putConfigFile(
   const content = `'use strict';\n\nconst appVariables = {\n${configFieldValues}\n};`;
 
   // In case getting object fails due to asynchronous IAM permission creation, it retries.
-  const params = {
+  const com = new PutObjectCommand({
     Bucket: DestS3Bucket,
     Body: content,
     Key: DestS3key,
     ContentType: getContentType(DestS3key),
-  };
+  });
 
   for (let retry = 1; retry <= RETRY_COUNT; retry++) {
     try {
       console.info(`Putting ${DestS3key}... Try count: ${retry}`);
 
-      await s3Client.putObject(params);
+      await s3Client.send(com);
 
       console.info(`Putting ${DestS3key} completed.`);
       break;
@@ -393,12 +398,13 @@ async function copyS3Assets(
   // Download manifest
   for (let retry = 1; retry <= RETRY_COUNT; retry++) {
     try {
-      const getParams = {
+      const getCom = new GetObjectCommand({
         Bucket: SourceS3Bucket,
         Key: ManifestKey,
-      };
-      const response = await s3Client.getObject(getParams);
-      manifest = JSON.parse(response.Body.toString());
+      });
+      const response = await s3Client.send(getCom);
+      const bodyStr = await response.Body.transformToString();
+      manifest = JSON.parse(bodyStr);
 
       break;
     } catch (error) {
@@ -419,15 +425,15 @@ async function copyS3Assets(
   try {
     await Promise.all(
       manifest.files.map(async (fileName: string) => {
-        const copyObjectParams = {
+        const copyObjectCom = new CopyObjectCommand({
           Bucket: DestS3Bucket,
           CopySource: `${SourceS3Bucket}/${SourceS3key}/${fileName}`,
           Key: fileName,
           ContentType: getContentType(fileName),
-        };
+        });
 
         console.debug(`Copying ${fileName} to ${DestS3Bucket}`);
-        return s3Client.copyObject(copyObjectParams);
+        return s3Client.send(copyObjectCom);
       })
     );
 
@@ -466,9 +472,9 @@ async function validateBuckets(requestProperties: CheckSourceBucketsRequestPrope
   const errorBuckets = [];
 
   for (const bucket of checkBuckets) {
-    const params = { Bucket: bucket };
+    const com = new HeadBucketCommand({ Bucket: bucket });
     try {
-      await s3Client.headBucket(params);
+      await s3Client.send(com);
 
       console.info(`Found bucket: ${bucket}`);
     } catch (error) {
@@ -512,7 +518,7 @@ async function checkSecretsManager(
 
   for (let retry = 1; retry <= RETRY_COUNT; retry++) {
     try {
-      const response = await secretsManager.getSecretValue({ SecretId: SecretsManagerName });
+      const response = await secretsManager.send(new GetSecretValueCommand({ SecretId: SecretsManagerName }));
       const secretString = JSON.parse(response.SecretString);
 
       if (!Object.prototype.hasOwnProperty.call(secretString, SecretsManagerKey)) {
@@ -567,7 +573,8 @@ async function checkFallbackImage(
 
   for (let retry = 1; retry <= RETRY_COUNT; retry++) {
     try {
-      data = await s3Client.headObject({ Bucket: FallbackImageS3Bucket, Key: FallbackImageS3Key });
+      const com = new HeadObjectCommand({ Bucket: FallbackImageS3Bucket, Key: FallbackImageS3Key });
+      data = await s3Client.send(com);
       break;
     } catch (error) {
       if (retry === RETRY_COUNT || ![ErrorCodes.ACCESS_DENIED, ErrorCodes.FORBIDDEN].includes(error.name)) {
@@ -614,18 +621,17 @@ async function createCloudFrontLoggingBucket(requestProperties: CreateLoggingBuc
 
   // create bucket
   try {
-    const s3Client = new S3({
+    const s3Client = new S3Client({
       ...awsSdkOptions,
       region: targetRegion,
     });
 
-    const createBucketRequestParams: CreateBucketCommandInput = {
+    const createBucketRequestCom = new CreateBucketCommand({
       Bucket: bucketName,
-      // @ts-ignore
-      ACL: "log-delivery-write",
+      ACL: "log-delivery-write" as any,
       ObjectOwnership: "ObjectWriter",
-    };
-    await s3Client.createBucket(createBucketRequestParams);
+    });
+    await s3Client.send(createBucketRequestCom);
 
     console.info(`Successfully created bucket '${bucketName}' in '${targetRegion}' region`);
   } catch (error) {
@@ -638,14 +644,14 @@ async function createCloudFrontLoggingBucket(requestProperties: CreateLoggingBuc
   // add encryption to bucket
   console.info("Adding Encryption...");
   try {
-    const putBucketEncryptionRequestParams: PutBucketEncryptionCommandInput = {
+    const putBucketEncryptionRequestCom = new PutBucketEncryptionCommand({
       Bucket: bucketName,
       ServerSideEncryptionConfiguration: {
         Rules: [{ ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "AES256" } }],
       },
-    };
+    });
 
-    await s3Client.putBucketEncryption(putBucketEncryptionRequestParams);
+    await s3Client.send(putBucketEncryptionRequestCom);
 
     console.info(`Successfully enabled encryption on bucket '${bucketName}'`);
   } catch (error) {
@@ -671,12 +677,12 @@ async function createCloudFrontLoggingBucket(requestProperties: CreateLoggingBuc
       Version: "2012-10-17",
       Statement: [bucketPolicyStatement],
     };
-    const putBucketPolicyRequestParams: PutBucketPolicyCommandInput = {
+    const putBucketPolicyRequestCom = new PutBucketPolicyCommand({
       Bucket: bucketName,
       Policy: JSON.stringify(bucketPolicy),
-    };
+    });
 
-    await s3Client.putBucketPolicy(putBucketPolicyRequestParams);
+    await s3Client.send(putBucketPolicyRequestCom);
 
     console.info(`Successfully added policy added to bucket '${bucketName}'`);
   } catch (error) {
@@ -695,11 +701,11 @@ async function createCloudFrontLoggingBucket(requestProperties: CreateLoggingBuc
  * @returns The result of check.
  */
 async function checkRegionOptInStatus(region: string): Promise<boolean> {
-  const describeRegionsRequestParams: DescribeRegionsCommandInput = {
+  const describeRegionsRequestCom = new DescribeRegionsCommand({
     RegionNames: [region],
     Filters: [{ Name: "opt-in-status", Values: ["opted-in"] }],
-  };
-  const describeRegionsResponse = await ec2Client.describeRegions(describeRegionsRequestParams);
+  });
+  const describeRegionsResponse = await ec2Client.send(describeRegionsRequestCom);
 
   return describeRegionsResponse.Regions.length > 0;
 }

@@ -1,15 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import Rekognition from "aws-sdk/clients/rekognition";
-import S3 from "aws-sdk/clients/s3";
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import { S3 } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 
 import { ImageHandler } from "../../image-handler";
 import { ImageEdits, StatusCodes } from "../../lib";
 
 const s3Client = new S3();
-const rekognitionClient = new Rekognition();
+const rekognitionClient = new RekognitionClient();
 
 describe("crop", () => {
   it("Should pass if a cropping area value is out of bounds", async () => {

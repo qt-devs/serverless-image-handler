@@ -48,11 +48,7 @@ Key: 'Value'
   });
 
   it("Should return success to put config file", async () => {
-    mockAwsS3.putObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({});
-      },
-    }));
+    mockAwsS3.putObject.mockImplementationOnce(() => Promise.resolve({}));
 
     const result = await handler(event, mockContext);
     const resourceProperties = event.ResourceProperties as PutConfigRequestProperties;
@@ -75,11 +71,7 @@ Key: 'Value'
   });
 
   it("Should return failed when PutObject fails", async () => {
-    mockAwsS3.putObject.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(new CustomResourceError(null, "PutObject failed"));
-      },
-    }));
+    mockAwsS3.putObject.mockImplementationOnce(() => Promise.reject(new CustomResourceError(null, "PutObject failed")));
 
     const result = await handler(event, mockContext);
     const resourceProperties = event.ResourceProperties as PutConfigRequestProperties;
@@ -108,16 +100,8 @@ Key: 'Value'
 
   it("Should retry and return success when IAM policy is not so S3 API returns AccessDenied", async () => {
     mockAwsS3.putObject
-      .mockImplementationOnce(() => ({
-        promise() {
-          return Promise.reject(new CustomResourceError(ErrorCodes.ACCESS_DENIED, null));
-        },
-      }))
-      .mockImplementationOnce(() => ({
-        promise() {
-          return Promise.resolve();
-        },
-      }));
+      .mockImplementationOnce(() => Promise.reject(new CustomResourceError(ErrorCodes.ACCESS_DENIED, null)))
+      .mockImplementationOnce(() => Promise.resolve());
 
     const result = await handler(event, mockContext);
     const resourceProperties = event.ResourceProperties as PutConfigRequestProperties;

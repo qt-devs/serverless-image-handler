@@ -3,8 +3,8 @@
 
 import { mockAwsRekognition } from "../mock";
 
-import Rekognition from "aws-sdk/clients/rekognition";
-import S3 from "aws-sdk/clients/s3";
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import { S3 } from "@aws-sdk/client-s3";
 import fs from "fs";
 import sharp from "sharp";
 
@@ -12,7 +12,7 @@ import { ImageHandler } from "../../image-handler";
 import { ImageEdits, ImageHandlerError, StatusCodes } from "../../lib";
 
 const s3Client = new S3();
-const rekognitionClient = new Rekognition();
+const rekognitionClient = new RekognitionClient();
 // jest spy
 const blurSpy = jest.spyOn(sharp.prototype, "blur");
 
@@ -32,21 +32,19 @@ describe("contentModeration", () => {
     const edits: ImageEdits = { contentModeration: { minConfidence: 70 } };
 
     // Mock
-    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          ModerationLabels: [
-            {
-              Confidence: 99.76720428466,
-              Name: "Smoking",
-              ParentName: "Tobacco",
-            },
-            { Confidence: 99.76720428466, Name: "Tobacco", ParentName: "" },
-          ],
-          ModerationModelVersion: "4.0",
-        });
-      },
-    }));
+    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() =>
+      Promise.resolve({
+        ModerationLabels: [
+          {
+            Confidence: 99.76720428466,
+            Name: "Smoking",
+            ParentName: "Tobacco",
+          },
+          { Confidence: 99.76720428466, Name: "Tobacco", ParentName: "" },
+        ],
+        ModerationModelVersion: "4.0",
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -76,21 +74,19 @@ describe("contentModeration", () => {
     };
 
     // Mock
-    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          ModerationLabels: [
-            {
-              Confidence: 99.76720428466,
-              Name: "Smoking",
-              ParentName: "Tobacco",
-            },
-            { Confidence: 99.76720428466, Name: "Tobacco", ParentName: "" },
-          ],
-          ModerationModelVersion: "4.0",
-        });
-      },
-    }));
+    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() =>
+      Promise.resolve({
+        ModerationLabels: [
+          {
+            Confidence: 99.76720428466,
+            Name: "Smoking",
+            ParentName: "Tobacco",
+          },
+          { Confidence: 99.76720428466, Name: "Tobacco", ParentName: "" },
+        ],
+        ModerationModelVersion: "4.0",
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -119,21 +115,19 @@ describe("contentModeration", () => {
     };
 
     // Mock
-    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          ModerationLabels: [
-            {
-              Confidence: 99.76720428466,
-              Name: "Smoking",
-              ParentName: "Tobacco",
-            },
-            { Confidence: 99.76720428466, Name: "Tobacco", ParentName: "" },
-          ],
-          ModerationModelVersion: "4.0",
-        });
-      },
-    }));
+    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() =>
+      Promise.resolve({
+        ModerationLabels: [
+          {
+            Confidence: 99.76720428466,
+            Name: "Smoking",
+            ParentName: "Tobacco",
+          },
+          { Confidence: 99.76720428466, Name: "Tobacco", ParentName: "" },
+        ],
+        ModerationModelVersion: "4.0",
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -166,21 +160,19 @@ describe("contentModeration", () => {
     };
 
     // Mock
-    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          ModerationLabels: [
-            {
-              Confidence: 99.76720428466,
-              Name: "Smoking",
-              ParentName: "Tobacco",
-            },
-            { Confidence: 99.76720428466, Name: "Tobacco", ParentName: "" },
-          ],
-          ModerationModelVersion: "4.0",
-        });
-      },
-    }));
+    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() =>
+      Promise.resolve({
+        ModerationLabels: [
+          {
+            Confidence: 99.76720428466,
+            Name: "Smoking",
+            ParentName: "Tobacco",
+          },
+          { Confidence: 99.76720428466, Name: "Tobacco", ParentName: "" },
+        ],
+        ModerationModelVersion: "4.0",
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -202,21 +194,19 @@ describe("contentModeration", () => {
     const edits: ImageEdits = { contentModeration: true };
 
     // Mock
-    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({
-          ModerationLabels: [
-            {
-              Confidence: 99.76720428466,
-              Name: "Fake Name",
-              ParentName: "Fake Parent Name",
-            },
-            { Confidence: 99.76720428466, Name: "Fake Name", ParentName: "" },
-          ],
-          ModerationModelVersion: "5.0",
-        });
-      },
-    }));
+    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() =>
+      Promise.resolve({
+        ModerationLabels: [
+          {
+            Confidence: 99.76720428466,
+            Name: "Fake Name",
+            ParentName: "Fake Parent Name",
+          },
+          { Confidence: 99.76720428466, Name: "Fake Name", ParentName: "" },
+        ],
+        ModerationModelVersion: "5.0",
+      })
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
@@ -244,17 +234,15 @@ describe("contentModeration", () => {
     };
 
     // Mock
-    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.reject(
-          new ImageHandlerError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            "InternalServerError",
-            "Amazon Rekognition experienced a service issue. Try your call again."
-          )
-        );
-      },
-    }));
+    mockAwsRekognition.detectModerationLabels.mockImplementationOnce(() =>
+      Promise.reject(
+        new ImageHandlerError(
+          StatusCodes.INTERNAL_SERVER_ERROR,
+          "InternalServerError",
+          "Amazon Rekognition experienced a service issue. Try your call again."
+        )
+      )
+    );
 
     // Act
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);

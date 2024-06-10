@@ -46,7 +46,7 @@ export class ServerlessImageHandlerStack extends Stack {
       description:
         "Would you like to deploy a demo UI to explore the features and capabilities of this solution? This will create an additional Amazon S3 bucket and Amazon CloudFront distribution in your account.",
       allowedValues: ["Yes", "No"],
-      default: "Yes",
+      default: "No",
     });
 
     const logRetentionPeriodParameter = new CfnParameter(this, "LogRetentionPeriodParameter", {
@@ -72,14 +72,14 @@ export class ServerlessImageHandlerStack extends Stack {
         "1827",
         "3653",
       ],
-      default: "1",
+      default: "7",
     });
 
     const autoWebPParameter = new CfnParameter(this, "AutoWebPParameter", {
       type: "String",
       description: `Would you like to enable automatic WebP based on accept headers? Select 'Yes' if so.`,
       allowedValues: ["Yes", "No"],
-      default: "No",
+      default: "Yes",
     });
 
     const enableSignatureParameter = new CfnParameter(this, "EnableSignatureParameter", {
@@ -133,7 +133,7 @@ export class ServerlessImageHandlerStack extends Stack {
     const solutionMapping = new CfnMapping(this, "Solution", {
       mapping: {
         Config: {
-          AnonymousUsage: "Yes",
+          AnonymousUsage: "No",
           SolutionId: props.solutionId,
           Version: props.solutionVersion,
         },

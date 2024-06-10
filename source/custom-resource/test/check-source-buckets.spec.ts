@@ -32,11 +32,7 @@ describe("CHECK_SOURCE_BUCKETS", () => {
   });
 
   it("Should return success to check source buckets", async () => {
-    mockAwsS3.headBucket.mockImplementation(() => ({
-      promise() {
-        return Promise.resolve();
-      },
-    }));
+    mockAwsS3.headBucket.mockImplementation(() => Promise.resolve());
 
     const result = await handler(event, mockContext);
 
@@ -50,11 +46,7 @@ describe("CHECK_SOURCE_BUCKETS", () => {
   });
 
   it("should return failed when any buckets do not exist", async () => {
-    mockAwsS3.headBucket.mockImplementation(() => ({
-      promise() {
-        return Promise.reject(new CustomResourceError(null, "HeadObject failed."));
-      },
-    }));
+    mockAwsS3.headBucket.mockImplementation(() => Promise.reject(new CustomResourceError(null, "HeadObject failed.")));
 
     const result = await handler(event, mockContext);
 

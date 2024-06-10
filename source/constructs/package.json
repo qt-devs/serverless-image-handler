@@ -37,12 +37,12 @@
     "typescript": "^5.3.3"
   },
   "overrides": {
-    "semver": "7.5.4"
+    "semver": "7.6.2"
   },
   "resolutions": {
-    "semver": "7.5.4"
+    "semver": "7.6.2"
   },
   "dependencies": {
-    "sharp": "^0.32.6"
+    "sharp": "^0.33.4"
   }
 }

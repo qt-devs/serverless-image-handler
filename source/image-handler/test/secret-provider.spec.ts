@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { mockAwsSecretManager } from "./mock";
-import SecretsManager from "aws-sdk/clients/secretsmanager";
+import { SecretsManager } from "@aws-sdk/client-secrets-manager";
 import { SecretProvider } from "../secret-provider";
 
 describe("index", () => {
@@ -13,11 +13,7 @@ describe("index", () => {
   });
 
   it("Should get a secret from secret manager if the cache is empty", async () => {
-    mockAwsSecretManager.getSecretValue.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ SecretString: "secret_value" });
-      },
-    }));
+    mockAwsSecretManager.getSecretValue.mockImplementationOnce(() => Promise.resolve({ SecretString: "secret_value" }));
 
     const secretProvider = new SecretProvider(secretsManager);
     const secretKeyFistCall = await secretProvider.getSecret("secret_id");
@@ -32,16 +28,12 @@ describe("index", () => {
   });
 
   it("Should get a secret from secret manager and invalidate the cache", async () => {
-    mockAwsSecretManager.getSecretValue.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ SecretString: "secret_value_1" });
-      },
-    }));
-    mockAwsSecretManager.getSecretValue.mockImplementationOnce(() => ({
-      promise() {
-        return Promise.resolve({ SecretString: "secret_value_2" });
-      },
-    }));
+    mockAwsSecretManager.getSecretValue.mockImplementationOnce(() =>
+      Promise.resolve({ SecretString: "secret_value_1" })
+    );
+    mockAwsSecretManager.getSecretValue.mockImplementationOnce(() =>
+      Promise.resolve({ SecretString: "secret_value_2" })
+    );
 
     const secretProvider = new SecretProvider(secretsManager);
     const getSecretKeyFistCall = await secretProvider.getSecret("secret_id_1");

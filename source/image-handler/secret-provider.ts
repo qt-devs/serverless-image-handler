@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import SecretsManager from "aws-sdk/clients/secretsmanager";
+import { SecretsManager } from "@aws-sdk/client-secrets-manager";
 
 /**
  * Class provides cached access to the Secret Manager.
@@ -25,7 +25,7 @@ export class SecretProvider {
     if (this.cache.secretId === secretId && this.cache.secret) {
       return this.cache.secret;
     } else {
-      const response = await this.secretsManager.getSecretValue({ SecretId: secretId }).promise();
+      const response = await this.secretsManager.getSecretValue({ SecretId: secretId });
       this.cache.secretId = secretId;
       this.cache.secret = response.SecretString;
 
