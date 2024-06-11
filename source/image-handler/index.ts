@@ -26,13 +26,23 @@ const secretProvider = new SecretProvider(secretsManagerClient);
 export async function handler(event: ImageHandlerEvent): Promise<ImageHandlerExecutionResult> {
   console.info("Received event:", JSON.stringify(event, null, 2));
 
+  const isAlb = event.requestContext && Object.prototype.hasOwnProperty.call(event.requestContext, "elb");
+
+  if (event.path === "/favicon.ico") {
+    const { body } = getErrorResponse({ status: StatusCodes.NOT_FOUND });
+    return {
+      statusCode: StatusCodes.NOT_FOUND,
+      isBase64Encoded: false,
+      headers: getResponseHeaders(true, isAlb),
+      body,
+    };
+  }
+
   const imageRequest = new ImageRequest(s3Client, secretProvider);
   const imageHandler = new ImageHandler(s3Client, rekognitionClient);
-  const isAlb = event.requestContext && Object.prototype.hasOwnProperty.call(event.requestContext, "elb");
 
   try {
     const imageRequestInfo = await imageRequest.setup(event);
-    console.info(imageRequestInfo);
 
     const processedRequest = await imageHandler.process(imageRequestInfo);
 

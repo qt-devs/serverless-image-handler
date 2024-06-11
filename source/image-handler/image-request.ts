@@ -3,6 +3,7 @@
 
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { createHmac } from "crypto";
+import { buffer } from "node:stream/consumers";
 
 import {
   ContentTypes,
@@ -156,9 +157,9 @@ export class ImageRequest {
     try {
       const result: OriginalImageInfo = {};
 
-      const imageLocation = { Bucket: bucket, Key: key };
-      const originalImage = await this.s3Client.send(new GetObjectCommand(imageLocation));
-      const imageBuffer = Buffer.from(await originalImage.Body.transformToByteArray());
+      console.log("getting object", bucket, key);
+      const originalImage = await this.s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      const imageBuffer = await buffer(originalImage.Body);
 
       if (originalImage.ContentType) {
         // If using default S3 ContentType infer from hex headers

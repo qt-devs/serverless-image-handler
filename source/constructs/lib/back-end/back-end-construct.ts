@@ -118,7 +118,10 @@ export class BackEnd extends Construct {
             return [];
           },
           afterBundling(inputDir: string, outputDir: string): string[] {
-            return [`cd ${outputDir}`, "rm -rf node_modules/sharp && npm install --arch=x64 --platform=linux sharp"];
+            return [
+              `cd ${outputDir}`,
+              "rm -rf node_modules/sharp && SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install --cpu=x64 --os=linux --libc=glibc sharp",
+            ];
           },
         },
       },

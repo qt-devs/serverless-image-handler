@@ -8,6 +8,7 @@ import {
   DetectFacesCommand,
   RekognitionClient,
 } from "@aws-sdk/client-rekognition";
+import { buffer } from "node:stream/consumers";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import sharp, { FormatEnum, OverlayOptions, ResizeOptions } from "sharp";
 
@@ -482,7 +483,7 @@ export class ImageHandler {
 
       // If alpha is not within 0-100, the default alpha is 0 (fully opaque).
       const alphaValue = zeroToHundred.test(alpha) ? parseInt(alpha) : 0;
-      const imageBuffer = Buffer.from(await overlayImage.Body.transformToByteArray());
+      const imageBuffer = await buffer(overlayImage.Body);
 
       return await sharp(imageBuffer)
         .resize(resizeOptions)
