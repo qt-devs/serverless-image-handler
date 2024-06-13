@@ -211,8 +211,8 @@ export class CustomResourcesConstruct extends Construct {
         CustomAction: "checkSecretsManager",
         SecretsManagerName: props.secretsManager,
         SecretsManagerKey: props.secretsManagerKey,
-      },
-      this.conditions.enableSignatureCondition
+      }
+      // this.conditions.enableSignatureCondition
     );
   }
 

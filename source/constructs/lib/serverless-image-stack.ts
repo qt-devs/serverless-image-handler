@@ -9,6 +9,7 @@ import { BackEnd } from "./back-end/back-end-construct";
 import { CommonResources } from "./common-resources/common-resources-construct";
 import { FrontEndConstruct as FrontEnd } from "./front-end/front-end-construct";
 import { SolutionConstructProps, YesNo } from "./types";
+import { EdgeLambdaStack } from "./edge-lambda-stack";
 
 export interface ServerlessImageHandlerStackProps extends StackProps {
   readonly solutionId: string;
@@ -170,6 +171,10 @@ export class ServerlessImageHandlerStack extends Stack {
       conditions: commonResources.conditions,
     });
 
+    const edgeLambdas = new EdgeLambdaStack(this, "EdgeLambdaFn", {
+      secretsManagerPolicy: commonResources.secretsManagerPolicy,
+    });
+
     const backEnd = new BackEnd(this, "BackEnd", {
       solutionVersion: props.solutionVersion,
       solutionName: props.solutionName,
@@ -177,6 +182,7 @@ export class ServerlessImageHandlerStack extends Stack {
       logsBucket: commonResources.logsBucket,
       uuid: commonResources.customResources.uuid,
       cloudFrontPriceClass: cloudFrontPriceClassParameter.valueAsString,
+      viewerRequestFn: edgeLambdas.viewerRequestFn,
       ...solutionConstructProps,
     });
 

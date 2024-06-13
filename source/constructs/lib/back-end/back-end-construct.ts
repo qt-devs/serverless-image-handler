@@ -10,24 +10,27 @@ import {
   CacheQueryStringBehavior,
   DistributionProps,
   IOrigin,
+  LambdaEdgeEventType,
   OriginRequestPolicy,
   OriginSslPolicy,
   PriceClass,
   ViewerProtocolPolicy,
+  experimental,
 } from "aws-cdk-lib/aws-cloudfront";
 import { HttpOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { Policy, PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
+import { Architecture, Code, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { IBucket } from "aws-cdk-lib/aws-s3";
-import { ArnFormat, Aws, Duration, Lazy, Stack } from "aws-cdk-lib";
+import { ArnFormat, Aws, CfnOutput, Duration, Lazy, Stack } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { CloudFrontToApiGatewayToLambda } from "@aws-solutions-constructs/aws-cloudfront-apigateway-lambda";
 
 import { addCfnSuppressRules } from "../../utils/utils";
 import { SolutionConstructProps } from "../types";
 import * as api from "aws-cdk-lib/aws-apigateway";
+import { spawnSync } from "child_process";
 
 export interface BackEndProps extends SolutionConstructProps {
   readonly solutionVersion: string;
@@ -36,6 +39,7 @@ export interface BackEndProps extends SolutionConstructProps {
   readonly logsBucket: IBucket;
   readonly uuid: string;
   readonly cloudFrontPriceClass: string;
+  readonly viewerRequestFn: experimental.EdgeFunction;
 }
 
 export class BackEnd extends Construct {
@@ -86,12 +90,14 @@ export class BackEnd extends Construct {
     ]);
     imageHandlerLambdaFunctionRole.attachInlinePolicy(imageHandlerLambdaFunctionRolePolicy);
 
+    const memorySize = 1536;
     const imageHandlerLambdaFunction = new NodejsFunction(this, "ImageHandlerLambdaFunction", {
       description: `${props.solutionName} (${props.solutionVersion}): Performs image edits and manipulations`,
-      memorySize: 1536,
+      memorySize,
       runtime: Runtime.NODEJS_20_X,
       timeout: Duration.seconds(29),
       role: imageHandlerLambdaFunctionRole,
+      architecture: Architecture.ARM_64,
       entry: path.join(__dirname, "../../../image-handler/index.ts"),
       environment: {
         AUTO_WEBP: props.autoWebP,
@@ -100,12 +106,13 @@ export class BackEnd extends Construct {
         SOURCE_BUCKETS: props.sourceBuckets,
         REWRITE_MATCH_PATTERN: "",
         REWRITE_SUBSTITUTION: "",
-        ENABLE_SIGNATURE: props.enableSignature,
-        SECRETS_MANAGER: props.secretsManager,
-        SECRET_KEY: props.secretsManagerKey,
+        // ENABLE_SIGNATURE: props.enableSignature,
+        // SECRETS_MANAGER: props.secretsManager,
+        // SECRET_KEY: props.secretsManagerKey,
         ENABLE_DEFAULT_FALLBACK_IMAGE: props.enableDefaultFallbackImage,
         DEFAULT_FALLBACK_IMAGE_BUCKET: props.fallbackImageS3Bucket,
         DEFAULT_FALLBACK_IMAGE_KEY: props.fallbackImageS3KeyBucket,
+        VIPS_DISC_THRESHOLD: `${memorySize}m`,
       },
       bundling: {
         externalModules: ["sharp"],
@@ -120,7 +127,7 @@ export class BackEnd extends Construct {
           afterBundling(inputDir: string, outputDir: string): string[] {
             return [
               `cd ${outputDir}`,
-              "rm -rf node_modules/sharp && SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install --cpu=x64 --os=linux --libc=glibc sharp",
+              "rm -rf node_modules/sharp && SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install --cpu=arm64 --os=linux --libc=glibc sharp",
             ];
           },
         },
@@ -176,11 +183,18 @@ export class BackEnd extends Construct {
         viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
         originRequestPolicy,
         cachePolicy,
+        edgeLambdas: [
+          {
+            functionVersion: props.viewerRequestFn.currentVersion,
+            eventType: LambdaEdgeEventType.VIEWER_REQUEST,
+          },
+        ],
       },
       priceClass: props.cloudFrontPriceClass as PriceClass,
       enableLogging: true,
       logBucket: props.logsBucket,
       logFilePrefix: "api-cloudfront/",
+      domainNames: [process.env.DOMAIN || "media.qtdevs.com"],
       errorResponses: [
         { httpStatus: 500, ttl: Duration.minutes(10) },
         { httpStatus: 501, ttl: Duration.minutes(10) },

@@ -99,7 +99,7 @@ export class ImageRequest {
    */
   public async setup(event: ImageHandlerEvent): Promise<ImageRequestInfo> {
     try {
-      await this.validateRequestSignature(event);
+      // await this.validateRequestSignature(event);
 
       let imageRequestInfo: ImageRequestInfo = <ImageRequestInfo>{};
 
@@ -479,49 +479,49 @@ export class ImageRequest {
     }
   }
 
-  /**
-   * Validates the request's signature.
-   * @param event Lambda request body.
-   * @returns A promise.
-   * @throws Throws the error if validation is enabled and the provided signature is invalid.
-   */
-  private async validateRequestSignature(event: ImageHandlerEvent): Promise<void> {
-    const { ENABLE_SIGNATURE, SECRETS_MANAGER, SECRET_KEY } = process.env;
+  // /**
+  //  * Validates the request's signature.
+  //  * @param event Lambda request body.
+  //  * @returns A promise.
+  //  * @throws Throws the error if validation is enabled and the provided signature is invalid.
+  //  */
+  // private async validateRequestSignature(event: ImageHandlerEvent): Promise<void> {
+  //   const { ENABLE_SIGNATURE, SECRETS_MANAGER, SECRET_KEY } = process.env;
 
-    // Checks signature enabled
-    if (ENABLE_SIGNATURE === "Yes") {
-      const { path, queryStringParameters } = event;
+  //   // Checks signature enabled
+  //   if (ENABLE_SIGNATURE === "Yes") {
+  //     const { path, queryStringParameters } = event;
 
-      if (!queryStringParameters?.signature) {
-        throw new ImageHandlerError(
-          StatusCodes.BAD_REQUEST,
-          "AuthorizationQueryParametersError",
-          "Query-string requires the signature parameter."
-        );
-      }
+  //     if (!queryStringParameters?.signature) {
+  //       throw new ImageHandlerError(
+  //         StatusCodes.BAD_REQUEST,
+  //         "AuthorizationQueryParametersError",
+  //         "Query-string requires the signature parameter."
+  //       );
+  //     }
 
-      try {
-        const { signature } = queryStringParameters;
-        const secret = JSON.parse(await this.secretProvider.getSecret(SECRETS_MANAGER));
-        const key = secret[SECRET_KEY];
-        const hash = createHmac("sha256", key).update(path).digest("hex");
+  //     try {
+  //       const { signature } = queryStringParameters;
+  //       const secret = JSON.parse(await this.secretProvider.getSecret(SECRETS_MANAGER));
+  //       const key = secret[SECRET_KEY];
+  //       const hash = createHmac("sha256", key).update(path).digest("hex");
 
-        // Signature should be made with the full path.
-        if (signature !== hash) {
-          throw new ImageHandlerError(StatusCodes.FORBIDDEN, "SignatureDoesNotMatch", "Signature does not match.");
-        }
-      } catch (error) {
-        if (error.code === "SignatureDoesNotMatch") {
-          throw error;
-        }
+  //       // Signature should be made with the full path.
+  //       if (signature !== hash) {
+  //         throw new ImageHandlerError(StatusCodes.FORBIDDEN, "SignatureDoesNotMatch", "Signature does not match.");
+  //       }
+  //     } catch (error) {
+  //       if (error.code === "SignatureDoesNotMatch") {
+  //         throw error;
+  //       }
 
-        console.error("Error occurred while checking signature.", error);
-        throw new ImageHandlerError(
-          StatusCodes.INTERNAL_SERVER_ERROR,
-          "SignatureValidationFailure",
-          "Signature validation failed."
-        );
-      }
-    }
-  }
+  //       console.error("Error occurred while checking signature.", error);
+  //       throw new ImageHandlerError(
+  //         StatusCodes.INTERNAL_SERVER_ERROR,
+  //         "SignatureValidationFailure",
+  //         "Signature validation failed."
+  //       );
+  //     }
+  //   }
+  // }
 }

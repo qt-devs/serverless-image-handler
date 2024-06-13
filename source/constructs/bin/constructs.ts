@@ -10,7 +10,7 @@ let synthesizer = new DefaultStackSynthesizer({
 });
 
 // Solutions pipeline deployment
-const { DIST_OUTPUT_BUCKET, SOLUTION_NAME, VERSION } = process.env;
+const { DIST_OUTPUT_BUCKET, SOLUTION_NAME, VERSION, AWS_REGION = "us-west-2" } = process.env;
 if (DIST_OUTPUT_BUCKET && SOLUTION_NAME && VERSION)
   synthesizer = new DefaultStackSynthesizer({
     generateBootstrapVersionRule: false,
@@ -30,4 +30,7 @@ new ServerlessImageHandlerStack(app, "ServerlessImageHandlerStack", {
   solutionId: app.node.tryGetContext("solutionId"),
   solutionVersion: app.node.tryGetContext("solutionVersion"),
   solutionName: app.node.tryGetContext("solutionName"),
+  env: {
+    region: AWS_REGION,
+  },
 });

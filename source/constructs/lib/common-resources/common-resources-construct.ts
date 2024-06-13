@@ -18,7 +18,7 @@ export interface CommonResourcesProps extends SolutionConstructProps {
 
 export interface Conditions {
   readonly deployUICondition: CfnCondition;
-  readonly enableSignatureCondition: CfnCondition;
+  // readonly enableSignatureCondition: CfnCondition;
   readonly enableDefaultFallbackImageCondition: CfnCondition;
   readonly enableCorsCondition: CfnCondition;
 }
@@ -46,9 +46,9 @@ export class CommonResources extends Construct {
       deployUICondition: new CfnCondition(this, "DeployDemoUICondition", {
         expression: Fn.conditionEquals(props.deployUI, "Yes"),
       }),
-      enableSignatureCondition: new CfnCondition(this, "EnableSignatureCondition", {
-        expression: Fn.conditionEquals(props.enableSignature, "Yes"),
-      }),
+      // enableSignatureCondition: new CfnCondition(this, "EnableSignatureCondition", {
+      //   expression: Fn.conditionEquals(props.enableSignature, "Yes"),
+      // }),
       enableDefaultFallbackImageCondition: new CfnCondition(this, "EnableDefaultFallbackImageCondition", {
         expression: Fn.conditionEquals(props.enableDefaultFallbackImage, "Yes"),
       }),
@@ -75,7 +75,7 @@ export class CommonResources extends Construct {
         }),
       ],
     });
-    addCfnCondition(this.secretsManagerPolicy, this.conditions.enableSignatureCondition);
+    // addCfnCondition(this.secretsManagerPolicy, this.conditions.enableSignatureCondition);
 
     this.customResources = new CustomResourcesConstruct(this, "CustomResources", {
       conditions: this.conditions,
