@@ -19,6 +19,7 @@ import {
 } from "./lib";
 import { SecretProvider } from "./secret-provider";
 import { ThumborMapper } from "./thumbor-mapper";
+import { Readable } from "stream";
 
 type OriginalImageInfo = Partial<{
   contentType: string;
@@ -157,9 +158,8 @@ export class ImageRequest {
     try {
       const result: OriginalImageInfo = {};
 
-      console.log("getting object", bucket, key);
       const originalImage = await this.s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-      const imageBuffer = await buffer(originalImage.Body);
+      const imageBuffer = await buffer(originalImage.Body as Readable);
 
       if (originalImage.ContentType) {
         // If using default S3 ContentType infer from hex headers

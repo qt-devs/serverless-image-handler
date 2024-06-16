@@ -1,20 +1,27 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PriceClass } from "aws-cdk-lib/aws-cloudfront";
 import { Aspects, CfnMapping, CfnOutput, CfnParameter, Stack, StackProps, Tags } from "aws-cdk-lib";
+import { PriceClass } from "aws-cdk-lib/aws-cloudfront";
 import { Construct } from "constructs";
 import { ConditionAspect, SuppressLambdaFunctionCfnRulesAspect } from "../utils/aspects";
 import { BackEnd } from "./back-end/back-end-construct";
 import { CommonResources } from "./common-resources/common-resources-construct";
 import { FrontEndConstruct as FrontEnd } from "./front-end/front-end-construct";
 import { SolutionConstructProps, YesNo } from "./types";
-import { EdgeLambdaStack } from "./edge-lambda-stack";
+import { CfnFunctionConstruct } from "./back-end/cloudfront-function-construct";
 
 export interface ServerlessImageHandlerStackProps extends StackProps {
   readonly solutionId: string;
   readonly solutionName: string;
   readonly solutionVersion: string;
+  readonly domain: string;
+  readonly subdomainPrefix: string;
+  readonly certificateArn: string;
+  readonly sourceBuckets: string;
+  readonly secretsManager: string;
+  readonly secretsManagerKey: string;
+  readonly secretsManagerValues: NodeJS.Dict<string>;
 }
 
 export class ServerlessImageHandlerStack extends Stack {
@@ -87,20 +94,20 @@ export class ServerlessImageHandlerStack extends Stack {
       type: "String",
       description: `Would you like to enable the signature? If so, select 'Yes' and provide SecretsManagerSecret and SecretsManagerKey values.`,
       allowedValues: ["Yes", "No"],
-      default: "No",
+      default: "Yes",
     });
 
     const secretsManagerSecretParameter = new CfnParameter(this, "SecretsManagerSecretParameter", {
       type: "String",
       description: "The name of AWS Secrets Manager secret. You need to create your secret under this name.",
-      default: "",
+      default: "prod/phx/app-settings",
     });
 
     const secretsManagerKeyParameter = new CfnParameter(this, "SecretsManagerKeyParameter", {
       type: "String",
       description:
         "The name of AWS Secrets Manager secret key. You need to create secret key with this key name. The secret value would be used to check signature.",
-      default: "",
+      default: "hmacSecret",
     });
 
     const enableDefaultFallbackImageParameter = new CfnParameter(this, "EnableDefaultFallbackImageParameter", {
@@ -131,6 +138,23 @@ export class ServerlessImageHandlerStack extends Stack {
       default: PriceClass.PRICE_CLASS_ALL,
     });
 
+    // const domainParameter = new CfnParameter(this, "DomainParameter", {
+    //   type: "String",
+    //   description: "Domain name for CloudFront, ie: example.com",
+    //   default: "qtdevs.com",
+    // });
+
+    // const subdomainPrefixParameter = new CfnParameter(this, "SubdomainPrefixParameter", {
+    //   type: "String",
+    //   description: "Subdomain prefix to use for CloudFront, ie: media would generate media.example.com",
+    //   default: "media",
+    // });
+
+    // const certificateArnParameter = new CfnParameter(this, "CertificateArnParameter", {
+    //   type: "String",
+    //   description: "SSL Certificate",
+    // });
+
     const solutionMapping = new CfnMapping(this, "Solution", {
       mapping: {
         Config: {
@@ -147,16 +171,19 @@ export class ServerlessImageHandlerStack extends Stack {
     const solutionConstructProps: SolutionConstructProps = {
       corsEnabled: corsEnabledParameter.valueAsString,
       corsOrigin: corsOriginParameter.valueAsString,
-      sourceBuckets: sourceBucketsParameter.valueAsString,
+      sourceBuckets: props.sourceBuckets, //sourceBucketsParameter.valueAsString,
       deployUI: deployDemoUIParameter.valueAsString as YesNo,
       logRetentionPeriod: logRetentionPeriodParameter.valueAsNumber,
       autoWebP: autoWebPParameter.valueAsString,
       enableSignature: enableSignatureParameter.valueAsString as YesNo,
-      secretsManager: secretsManagerSecretParameter.valueAsString,
-      secretsManagerKey: secretsManagerKeyParameter.valueAsString,
+      secretsManager: props.secretsManager, //secretsManagerSecretParameter.valueAsString,
+      secretsManagerKey: props.secretsManagerKey, //secretsManagerKeyParameter.valueAsString,
       enableDefaultFallbackImage: enableDefaultFallbackImageParameter.valueAsString as YesNo,
       fallbackImageS3Bucket: fallbackImageS3BucketParameter.valueAsString,
       fallbackImageS3KeyBucket: fallbackImageS3KeyParameter.valueAsString,
+      domain: props.domain,
+      subdomainPrefix: props.subdomainPrefix,
+      certificateArn: props.certificateArn,
     };
 
     const commonResources = new CommonResources(this, "CommonResources", {
@@ -171,9 +198,7 @@ export class ServerlessImageHandlerStack extends Stack {
       conditions: commonResources.conditions,
     });
 
-    const edgeLambdas = new EdgeLambdaStack(this, "EdgeLambdaFn", {
-      secretsManagerPolicy: commonResources.secretsManagerPolicy,
-    });
+    const cfnFunction = new CfnFunctionConstruct(this, id, { secretsManagerValues: props.secretsManagerValues }); // NOTE: yes i am re-using id from main stack so the function name is clean
 
     const backEnd = new BackEnd(this, "BackEnd", {
       solutionVersion: props.solutionVersion,
@@ -182,7 +207,7 @@ export class ServerlessImageHandlerStack extends Stack {
       logsBucket: commonResources.logsBucket,
       uuid: commonResources.customResources.uuid,
       cloudFrontPriceClass: cloudFrontPriceClassParameter.valueAsString,
-      viewerRequestFn: edgeLambdas.viewerRequestFn,
+      viewerRequestFn: cfnFunction.viewerRequestFn,
       ...solutionConstructProps,
     });
 
@@ -192,14 +217,14 @@ export class ServerlessImageHandlerStack extends Stack {
     });
 
     commonResources.customResources.setupValidateSourceAndFallbackImageBuckets({
-      sourceBuckets: sourceBucketsParameter.valueAsString,
+      sourceBuckets: props.sourceBuckets, //sourceBucketsParameter.valueAsString,
       fallbackImageS3Bucket: fallbackImageS3BucketParameter.valueAsString,
       fallbackImageS3Key: fallbackImageS3KeyParameter.valueAsString,
     });
 
     commonResources.customResources.setupValidateSecretsManager({
-      secretsManager: secretsManagerSecretParameter.valueAsString,
-      secretsManagerKey: secretsManagerKeyParameter.valueAsString,
+      secretsManager: props.secretsManager, //secretsManagerSecretParameter.valueAsString,
+      secretsManagerKey: props.secretsManagerKey, //secretsManagerKeyParameter.valueAsString,
     });
 
     commonResources.customResources.setupCopyWebsiteCustomResource({
@@ -303,13 +328,16 @@ export class ServerlessImageHandlerStack extends Stack {
       value: `https://${backEnd.domainName}`,
       description: "Link to API endpoint for sending image requests to.",
     });
+    if (backEnd.dnsRecord) {
+      new CfnOutput(this, "CloudFront_Domain", { value: backEnd.dnsRecord.domainName });
+    }
     new CfnOutput(this, "DemoUrl", {
       value: `https://${frontEnd.domainName}/index.html`,
       description: "Link to the demo user interface for the solution.",
       condition: commonResources.conditions.deployUICondition,
     });
     new CfnOutput(this, "SourceBuckets", {
-      value: sourceBucketsParameter.valueAsString,
+      value: props.sourceBuckets, // sourceBucketsParameter.valueAsString,
       description: "Amazon S3 bucket location containing original image files.",
     });
     new CfnOutput(this, "CorsEnabled", {

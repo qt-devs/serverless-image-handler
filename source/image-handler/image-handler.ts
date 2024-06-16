@@ -24,6 +24,7 @@ import {
   RekognitionCompatibleImage,
   StatusCodes,
 } from "./lib";
+import { Readable } from "node:stream";
 
 export class ImageHandler {
   private readonly LAMBDA_PAYLOAD_LIMIT = 6 * 1024 * 1024;
@@ -483,7 +484,7 @@ export class ImageHandler {
 
       // If alpha is not within 0-100, the default alpha is 0 (fully opaque).
       const alphaValue = zeroToHundred.test(alpha) ? parseInt(alpha) : 0;
-      const imageBuffer = await buffer(overlayImage.Body);
+      const imageBuffer = await buffer(overlayImage.Body as Readable);
 
       return await sharp(imageBuffer)
         .resize(resizeOptions)
@@ -577,8 +578,7 @@ export class ImageHandler {
     const params = { Image: { Bytes: imageBuffer } };
 
     try {
-      const command = new DetectFacesCommand(params);
-      const response = await this.rekognitionClient.send(command);
+      const response = await this.rekognitionClient.send(new DetectFacesCommand(params));
       if (response.FaceDetails.length <= 0) {
         return { height: 1, left: 0, top: 0, width: 1 };
       }
@@ -630,8 +630,7 @@ export class ImageHandler {
         Image: { Bytes: imageBuffer },
         MinConfidence: minConfidence ?? 75,
       };
-      const detectModerationLabelsCom = new DetectModerationLabelsCommand(params);
-      return await this.rekognitionClient.send(detectModerationLabelsCom);
+      return await this.rekognitionClient.send(new DetectModerationLabelsCommand(params));
     } catch (error) {
       console.error(error);
       throw new ImageHandlerError(

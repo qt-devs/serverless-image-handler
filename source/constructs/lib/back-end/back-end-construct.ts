@@ -1,7 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as path from "path";
+import { CloudFrontToApiGatewayToLambda } from "@aws-solutions-constructs/aws-cloudfront-apigateway-lambda";
+import { ArnFormat, Aws, DockerImage, Duration, Lazy, RemovalPolicy, Stack } from "aws-cdk-lib";
 import { LambdaRestApiProps, RestApi } from "aws-cdk-lib/aws-apigateway";
 import {
   AllowedMethods,
@@ -9,6 +10,7 @@ import {
   CachePolicy,
   CacheQueryStringBehavior,
   DistributionProps,
+  FunctionEventType,
   IOrigin,
   LambdaEdgeEventType,
   OriginRequestPolicy,
@@ -16,21 +18,35 @@ import {
   PriceClass,
   ViewerProtocolPolicy,
   experimental,
+  CfnFunction,
+  CfnKeyValueStore,
+  Function,
 } from "aws-cdk-lib/aws-cloudfront";
 import { HttpOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
-import { Policy, PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
+import {
+  CompositePrincipal,
+  Effect,
+  ManagedPolicy,
+  Policy,
+  PolicyStatement,
+  Role,
+  ServicePrincipal,
+} from "aws-cdk-lib/aws-iam";
 import { Architecture, Code, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { IBucket } from "aws-cdk-lib/aws-s3";
-import { ArnFormat, Aws, CfnOutput, Duration, Lazy, Stack } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import { CloudFrontToApiGatewayToLambda } from "@aws-solutions-constructs/aws-cloudfront-apigateway-lambda";
+import * as path from "path";
+import * as ts from "typescript";
 
+import * as api from "aws-cdk-lib/aws-apigateway";
 import { addCfnSuppressRules } from "../../utils/utils";
 import { SolutionConstructProps } from "../types";
-import * as api from "aws-cdk-lib/aws-apigateway";
-import { spawnSync } from "child_process";
+import { ARecord, HostedZone, RecordTarget } from "aws-cdk-lib/aws-route53";
+import { CloudFrontTarget } from "aws-cdk-lib/aws-route53-targets";
+import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
+import fs from "fs";
 
 export interface BackEndProps extends SolutionConstructProps {
   readonly solutionVersion: string;
@@ -39,22 +55,22 @@ export interface BackEndProps extends SolutionConstructProps {
   readonly logsBucket: IBucket;
   readonly uuid: string;
   readonly cloudFrontPriceClass: string;
-  readonly viewerRequestFn: experimental.EdgeFunction;
+  readonly viewerRequestFn: Function;
 }
 
 export class BackEnd extends Construct {
   public domainName: string;
+  public dnsRecord?: ARecord;
 
   constructor(scope: Construct, id: string, props: BackEndProps) {
     super(scope, id);
 
-    const imageHandlerLambdaFunctionRole = new Role(this, "ImageHandlerFunctionRole", {
+    const imageHandlerLambdaFunctionRole = new Role(this, "ImagerFnRole", {
       assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
       path: "/",
     });
-    props.secretsManagerPolicy.attachToRole(imageHandlerLambdaFunctionRole);
 
-    const imageHandlerLambdaFunctionRolePolicy = new Policy(this, "ImageHandlerFunctionPolicy", {
+    const imageHandlerLambdaFunctionRolePolicy = new Policy(this, "ImagerFnPolicy", {
       statements: [
         new PolicyStatement({
           actions: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
@@ -91,7 +107,7 @@ export class BackEnd extends Construct {
     imageHandlerLambdaFunctionRole.attachInlinePolicy(imageHandlerLambdaFunctionRolePolicy);
 
     const memorySize = 1536;
-    const imageHandlerLambdaFunction = new NodejsFunction(this, "ImageHandlerLambdaFunction", {
+    const imageHandlerLambdaFunction = new NodejsFunction(this, "ImagerFn", {
       description: `${props.solutionName} (${props.solutionVersion}): Performs image edits and manipulations`,
       memorySize,
       runtime: Runtime.NODEJS_20_X,
@@ -106,9 +122,9 @@ export class BackEnd extends Construct {
         SOURCE_BUCKETS: props.sourceBuckets,
         REWRITE_MATCH_PATTERN: "",
         REWRITE_SUBSTITUTION: "",
-        // ENABLE_SIGNATURE: props.enableSignature,
-        // SECRETS_MANAGER: props.secretsManager,
-        // SECRET_KEY: props.secretsManagerKey,
+        ENABLE_SIGNATURE: props.enableSignature,
+        SECRETS_MANAGER: props.secretsManager,
+        SECRET_KEY: props.secretsManagerKey,
         ENABLE_DEFAULT_FALLBACK_IMAGE: props.enableDefaultFallbackImage,
         DEFAULT_FALLBACK_IMAGE_BUCKET: props.fallbackImageS3Bucket,
         DEFAULT_FALLBACK_IMAGE_KEY: props.fallbackImageS3KeyBucket,
@@ -117,6 +133,7 @@ export class BackEnd extends Construct {
       bundling: {
         externalModules: ["sharp"],
         nodeModules: ["sharp"],
+        minify: true,
         commandHooks: {
           beforeBundling(inputDir: string, outputDir: string): string[] {
             return [];
@@ -134,7 +151,7 @@ export class BackEnd extends Construct {
       },
     });
 
-    const imageHandlerLogGroup = new LogGroup(this, "ImageHandlerLogGroup", {
+    const imageHandlerLogGroup = new LogGroup(this, "ImagerLogGroup", {
       logGroupName: `/aws/lambda/${imageHandlerLambdaFunction.functionName}`,
       retention: props.logRetentionPeriod as RetentionDays,
     });
@@ -147,7 +164,7 @@ export class BackEnd extends Construct {
     ]);
 
     const cachePolicy = new CachePolicy(this, "CachePolicy", {
-      cachePolicyName: `ServerlessImageHandler-${props.uuid}`,
+      cachePolicyName: `ImageHandlerStack-${props.uuid}`,
       defaultTtl: Duration.days(1),
       minTtl: Duration.seconds(1),
       maxTtl: Duration.days(365),
@@ -157,7 +174,7 @@ export class BackEnd extends Construct {
     });
 
     const originRequestPolicy = new OriginRequestPolicy(this, "OriginRequestPolicy", {
-      originRequestPolicyName: `ServerlessImageHandler-${props.uuid}`,
+      originRequestPolicyName: `ImageHandlerStack-${props.uuid}`,
       headerBehavior: CacheHeaderBehavior.allowList("origin", "accept"),
       queryStringBehavior: CacheQueryStringBehavior.allowList("signature"),
     });
@@ -175,26 +192,32 @@ export class BackEnd extends Construct {
       originSslProtocols: [OriginSslPolicy.TLS_V1_1, OriginSslPolicy.TLS_V1_2],
     });
 
+    const domain = props.domain ? `${props.subdomainPrefix}.${props.domain}` : "";
+    const domainNames = domain ? [domain] : undefined;
+
+    const certificate = Certificate.fromCertificateArn(this, "CertificateImport", props.certificateArn);
+
     const cloudFrontDistributionProps: DistributionProps = {
       comment: "Image Handler Distribution for Serverless Image Handler",
       defaultBehavior: {
         origin,
         allowedMethods: AllowedMethods.ALLOW_GET_HEAD,
-        viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+        viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         originRequestPolicy,
         cachePolicy,
-        edgeLambdas: [
+        functionAssociations: [
           {
-            functionVersion: props.viewerRequestFn.currentVersion,
-            eventType: LambdaEdgeEventType.VIEWER_REQUEST,
+            function: props.viewerRequestFn,
+            eventType: FunctionEventType.VIEWER_REQUEST,
           },
         ],
       },
+      certificate,
       priceClass: props.cloudFrontPriceClass as PriceClass,
       enableLogging: true,
       logBucket: props.logsBucket,
       logFilePrefix: "api-cloudfront/",
-      domainNames: [process.env.DOMAIN || "media.qtdevs.com"],
+      domainNames,
       errorResponses: [
         { httpStatus: 500, ttl: Duration.minutes(10) },
         { httpStatus: 501, ttl: Duration.minutes(10) },
@@ -219,17 +242,28 @@ export class BackEnd extends Construct {
       },
     };
 
-    const imageHandlerCloudFrontApiGatewayLambda = new CloudFrontToApiGatewayToLambda(
-      this,
-      "ImageHandlerCloudFrontApiGatewayLambda",
-      {
-        existingLambdaObj: imageHandlerLambdaFunction,
-        insertHttpSecurityHeaders: false,
-        logGroupProps,
-        cloudFrontDistributionProps,
-        apiGatewayProps,
-      }
-    );
+    const imageHandlerCloudFrontApiGatewayLambda = new CloudFrontToApiGatewayToLambda(this, "ImagerCFApiLambda", {
+      existingLambdaObj: imageHandlerLambdaFunction,
+      insertHttpSecurityHeaders: false,
+      logGroupProps,
+      cloudFrontDistributionProps,
+      apiGatewayProps,
+    });
+    if (props.domain) {
+      const zone = HostedZone.fromLookup(this, "HostedZone", {
+        domainName: props.domain,
+      });
+      const target = RecordTarget.fromAlias(
+        new CloudFrontTarget(imageHandlerCloudFrontApiGatewayLambda.cloudFrontWebDistribution)
+      );
+
+      this.dnsRecord = new ARecord(this, "AAliasRecord", {
+        recordName: props.subdomainPrefix,
+        target,
+        zone,
+      });
+      this.dnsRecord.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    }
 
     addCfnSuppressRules(imageHandlerCloudFrontApiGatewayLambda.apiGateway, [
       {

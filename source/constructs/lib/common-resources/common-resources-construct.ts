@@ -1,14 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import * as appreg from "@aws-cdk/aws-servicecatalogappregistry-alpha";
+import { ArnFormat, Aws, CfnCondition, Fn, Stack, Tags } from "aws-cdk-lib";
 import { Policy, PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { IBucket } from "aws-cdk-lib/aws-s3";
-import { ArnFormat, Aws, CfnCondition, Fn, Stack, Tags } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import { addCfnCondition } from "../../utils/utils";
 import { SolutionConstructProps } from "../types";
 import { CustomResourcesConstruct } from "./custom-resources/custom-resource-construct";
-import * as appreg from "@aws-cdk/aws-servicecatalogappregistry-alpha";
+import { addCfnCondition } from "../../utils/utils";
 
 export interface CommonResourcesProps extends SolutionConstructProps {
   readonly solutionId: string;
@@ -18,7 +18,7 @@ export interface CommonResourcesProps extends SolutionConstructProps {
 
 export interface Conditions {
   readonly deployUICondition: CfnCondition;
-  // readonly enableSignatureCondition: CfnCondition;
+  readonly enableSignatureCondition: CfnCondition;
   readonly enableDefaultFallbackImageCondition: CfnCondition;
   readonly enableCorsCondition: CfnCondition;
 }
@@ -46,9 +46,9 @@ export class CommonResources extends Construct {
       deployUICondition: new CfnCondition(this, "DeployDemoUICondition", {
         expression: Fn.conditionEquals(props.deployUI, "Yes"),
       }),
-      // enableSignatureCondition: new CfnCondition(this, "EnableSignatureCondition", {
-      //   expression: Fn.conditionEquals(props.enableSignature, "Yes"),
-      // }),
+      enableSignatureCondition: new CfnCondition(this, "EnableSignatureCondition", {
+        expression: Fn.conditionEquals(props.enableSignature, "Yes"),
+      }),
       enableDefaultFallbackImageCondition: new CfnCondition(this, "EnableDefaultFallbackImageCondition", {
         expression: Fn.conditionEquals(props.enableDefaultFallbackImage, "Yes"),
       }),
@@ -75,7 +75,7 @@ export class CommonResources extends Construct {
         }),
       ],
     });
-    // addCfnCondition(this.secretsManagerPolicy, this.conditions.enableSignatureCondition);
+    addCfnCondition(this.secretsManagerPolicy, this.conditions.enableSignatureCondition);
 
     this.customResources = new CustomResourcesConstruct(this, "CustomResources", {
       conditions: this.conditions,
