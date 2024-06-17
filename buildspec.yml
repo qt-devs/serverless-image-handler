@@ -1,0 +1,21 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - npm install -g aws-cdk --unsafe-perm --progress=false --silent
+  pre_build:
+    commands:
+      - cd source/constructs
+      - npm run clean:install
+  # build:
+  #   commands:
+  #     - npm run build # we don't need to build, deploy will build before deploying
+  post_build:
+    commands:
+      - npm run deploy
+cache:
+  paths:
+    - "/root/.npm/**/*"
