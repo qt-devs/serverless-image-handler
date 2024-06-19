@@ -16,6 +16,3 @@ phases:
   post_build:
     commands:
       - npm run deploy
-cache:
-  paths:
-    - "/root/.npm/**/*"
