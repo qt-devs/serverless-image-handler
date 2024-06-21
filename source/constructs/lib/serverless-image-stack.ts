@@ -208,6 +208,7 @@ export class ServerlessImageHandlerStack extends Stack {
       uuid: commonResources.customResources.uuid,
       cloudFrontPriceClass: cloudFrontPriceClassParameter.valueAsString,
       viewerRequestFn: cfnFunction.viewerRequestFn,
+      // publicKeyId: props.secretsManagerValues.cfnKeyPairId!,
       ...solutionConstructProps,
     });
 
@@ -324,7 +325,7 @@ export class ServerlessImageHandlerStack extends Stack {
     };
 
     /* eslint-disable no-new */
-    new CfnOutput(this, "ApiEndpoint", {
+    new CfnOutput(this, "CloudfrontEndpoint", {
       value: `https://${backEnd.domainName}`,
       description: "Link to API endpoint for sending image requests to.",
     });
@@ -353,6 +354,7 @@ export class ServerlessImageHandlerStack extends Stack {
       value: logRetentionPeriodParameter.valueAsString,
       description: "Number of days for event logs from Lambda to be retained in CloudWatch.",
     });
+    new CfnOutput(this, "ImageHandlerFnUrl", { value: backEnd.fnUrl.url });
 
     Aspects.of(this).add(new SuppressLambdaFunctionCfnRulesAspect());
     Tags.of(this).add("SolutionId", props.solutionId);

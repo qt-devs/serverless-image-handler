@@ -2,51 +2,42 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { CloudFrontToApiGatewayToLambda } from "@aws-solutions-constructs/aws-cloudfront-apigateway-lambda";
-import { ArnFormat, Aws, DockerImage, Duration, Lazy, RemovalPolicy, Stack } from "aws-cdk-lib";
+import { ArnFormat, Aws, Duration, Lazy, RemovalPolicy, Stack } from "aws-cdk-lib";
+import * as api from "aws-cdk-lib/aws-apigateway";
 import { LambdaRestApiProps, RestApi } from "aws-cdk-lib/aws-apigateway";
+import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
 import {
   AllowedMethods,
   CacheHeaderBehavior,
   CachePolicy,
   CacheQueryStringBehavior,
+  CfnDistribution,
+  CfnOriginAccessControl,
+  Distribution,
   DistributionProps,
+  Function,
   FunctionEventType,
   IOrigin,
-  LambdaEdgeEventType,
+  KeyGroup,
   OriginRequestPolicy,
   OriginSslPolicy,
   PriceClass,
+  PublicKey,
   ViewerProtocolPolicy,
-  experimental,
-  CfnFunction,
-  CfnKeyValueStore,
-  Function,
 } from "aws-cdk-lib/aws-cloudfront";
-import { HttpOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
-import {
-  CompositePrincipal,
-  Effect,
-  ManagedPolicy,
-  Policy,
-  PolicyStatement,
-  Role,
-  ServicePrincipal,
-} from "aws-cdk-lib/aws-iam";
-import { Architecture, Code, Runtime } from "aws-cdk-lib/aws-lambda";
+import { FunctionUrlOrigin, HttpOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import { Policy, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
+import { Architecture, FunctionUrl, FunctionUrlAuthType, InvokeMode, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
-import { IBucket } from "aws-cdk-lib/aws-s3";
-import { Construct } from "constructs";
-import * as path from "path";
-import * as ts from "typescript";
-
-import * as api from "aws-cdk-lib/aws-apigateway";
-import { addCfnSuppressRules } from "../../utils/utils";
-import { SolutionConstructProps } from "../types";
 import { ARecord, HostedZone, RecordTarget } from "aws-cdk-lib/aws-route53";
 import { CloudFrontTarget } from "aws-cdk-lib/aws-route53-targets";
-import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
-import fs from "fs";
+import { Bucket, CfnBucketPolicy, IBucket } from "aws-cdk-lib/aws-s3";
+import { Construct } from "constructs";
+import * as path from "path";
+import { addCfnSuppressRules } from "../../utils/utils";
+import { SolutionConstructProps } from "../types";
+import { S3OriginWithOACPatch } from "./s3OriginOAC";
 
 export interface BackEndProps extends SolutionConstructProps {
   readonly solutionVersion: string;
@@ -56,11 +47,16 @@ export interface BackEndProps extends SolutionConstructProps {
   readonly uuid: string;
   readonly cloudFrontPriceClass: string;
   readonly viewerRequestFn: Function;
+  // /**
+  //  * cloudfront public key for cloudfront sign url
+  //  */
+  // readonly publicKeyId: string;
 }
 
 export class BackEnd extends Construct {
   public domainName: string;
   public dnsRecord?: ARecord;
+  public fnUrl: FunctionUrl;
 
   constructor(scope: Construct, id: string, props: BackEndProps) {
     super(scope, id);
@@ -168,7 +164,7 @@ export class BackEnd extends Construct {
       defaultTtl: Duration.days(1),
       minTtl: Duration.seconds(1),
       maxTtl: Duration.days(365),
-      enableAcceptEncodingGzip: false,
+      enableAcceptEncodingGzip: false, // IMPORTANT: keep this false, it improves cache hit ratio
       headerBehavior: CacheHeaderBehavior.allowList("origin", "accept"),
       queryStringBehavior: CacheQueryStringBehavior.allowList("signature"),
     });
@@ -176,33 +172,58 @@ export class BackEnd extends Construct {
     const originRequestPolicy = new OriginRequestPolicy(this, "OriginRequestPolicy", {
       originRequestPolicyName: `ImageHandlerStack-${props.uuid}`,
       headerBehavior: CacheHeaderBehavior.allowList("origin", "accept"),
-      queryStringBehavior: CacheQueryStringBehavior.allowList("signature"),
+      queryStringBehavior: CacheQueryStringBehavior.allowList("signature", "expires"),
     });
 
-    const apiGatewayRestApi = RestApi.fromRestApiId(
-      this,
-      "ApiGatewayRestApi",
-      Lazy.string({
-        produce: () => imageHandlerCloudFrontApiGatewayLambda.apiGateway.restApiId,
-      })
-    );
+    // const apiGatewayRestApi = RestApi.fromRestApiId(
+    //   this,
+    //   "ApiGatewayRestApi",
+    //   Lazy.string({
+    //     produce: () => imageHandlerCloudFrontApiGatewayLambda.apiGateway.restApiId,
+    //   })
+    // );
 
-    const origin: IOrigin = new HttpOrigin(`${apiGatewayRestApi.restApiId}.execute-api.${Aws.REGION}.amazonaws.com`, {
-      originPath: "/image",
-      originSslProtocols: [OriginSslPolicy.TLS_V1_1, OriginSslPolicy.TLS_V1_2],
+    // const origin: IOrigin = new HttpOrigin(`${apiGatewayRestApi.restApiId}.execute-api.${Aws.REGION}.amazonaws.com`, {
+    //   originPath: "/image",
+    //   originSslProtocols: [OriginSslPolicy.TLS_V1_1, OriginSslPolicy.TLS_V1_2],
+    // });
+
+    this.fnUrl = imageHandlerLambdaFunction.addFunctionUrl({
+      authType: FunctionUrlAuthType.AWS_IAM,
     });
+
+    const origin: IOrigin = new FunctionUrlOrigin(this.fnUrl);
 
     const domain = props.domain ? `${props.subdomainPrefix}.${props.domain}` : "";
     const domainNames = domain ? [domain] : undefined;
 
     const certificate = Certificate.fromCertificateArn(this, "CertificateImport", props.certificateArn);
 
+    // const bucket = Bucket.fromBucketName(this, "ImportBucket", props.sourceBuckets);
+    // Create an Origin Access Control using Cfn construct
+    // const oac = new CfnOriginAccessControl(this, "OAC", {
+    //   originAccessControlConfig: {
+    //     name: `ImageHandlerStack-BucketOAC-${props.uuid}`,
+    //     originAccessControlOriginType: "s3",
+    //     signingBehavior: "always",
+    //     signingProtocol: "sigv4",
+    //   },
+    // });
+    const oac = new CfnOriginAccessControl(this, "OAC", {
+      originAccessControlConfig: {
+        name: `ImageHandlerStack-FnUrlOAC-${props.uuid}`,
+        originAccessControlOriginType: "lambda",
+        signingBehavior: "always",
+        signingProtocol: "sigv4",
+      },
+    });
+
     const cloudFrontDistributionProps: DistributionProps = {
       comment: "Image Handler Distribution for Serverless Image Handler",
       defaultBehavior: {
         origin,
         allowedMethods: AllowedMethods.ALLOW_GET_HEAD,
-        viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
         originRequestPolicy,
         cachePolicy,
         functionAssociations: [
@@ -212,6 +233,20 @@ export class BackEnd extends Construct {
           },
         ],
       },
+      // additionalBehaviors: {
+      //   "/img/*": {
+      //     origin: new S3OriginWithOACPatch(bucket, { oacId: oac.getAtt("id") }),
+      //     allowedMethods: AllowedMethods.ALLOW_ALL,
+      //     viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+      //     originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      //     cachePolicy: CachePolicy.CACHING_DISABLED,
+      //     trustedKeyGroups: [
+      //       new KeyGroup(this, "KeyGroup", {
+      //         items: [PublicKey.fromPublicKeyId(this, "KeyPairImport", props.publicKeyId)],
+      //       }),
+      //     ],
+      //   },
+      // },
       certificate,
       priceClass: props.cloudFrontPriceClass as PriceClass,
       enableLogging: true,
@@ -227,35 +262,36 @@ export class BackEnd extends Construct {
       ],
     };
 
-    const logGroupProps = {
-      retention: props.logRetentionPeriod as RetentionDays,
-    };
+    // const logGroupProps = {
+    //   retention: props.logRetentionPeriod as RetentionDays,
+    // };
 
-    const apiGatewayProps: LambdaRestApiProps = {
-      handler: imageHandlerLambdaFunction,
-      deployOptions: {
-        stageName: "image",
-      },
-      binaryMediaTypes: ["*/*"],
-      defaultMethodOptions: {
-        authorizationType: api.AuthorizationType.NONE,
-      },
-    };
+    // const apiGatewayProps: LambdaRestApiProps = {
+    //   handler: imageHandlerLambdaFunction,
+    //   deployOptions: {
+    //     stageName: "image",
+    //   },
+    //   binaryMediaTypes: ["*/*"],
+    //   defaultMethodOptions: {
+    //     authorizationType: api.AuthorizationType.NONE,
+    //   },
+    // };
 
-    const imageHandlerCloudFrontApiGatewayLambda = new CloudFrontToApiGatewayToLambda(this, "ImagerCFApiLambda", {
-      existingLambdaObj: imageHandlerLambdaFunction,
-      insertHttpSecurityHeaders: false,
-      logGroupProps,
-      cloudFrontDistributionProps,
-      apiGatewayProps,
-    });
+    // const imageHandlerCloudFrontApiGatewayLambda = new CloudFrontToApiGatewayToLambda(this, "ImagerCFApiLambda", {
+    //   existingLambdaObj: imageHandlerLambdaFunction,
+    //   insertHttpSecurityHeaders: false,
+    //   logGroupProps,
+    //   cloudFrontDistributionProps,
+    //   apiGatewayProps,
+    // });
+
+    const distribution = new Distribution(this, "CFDistribution", cloudFrontDistributionProps); //imageHandlerCloudFrontApiGatewayLambda.cloudFrontWebDistribution;
+
     if (props.domain) {
       const zone = HostedZone.fromLookup(this, "HostedZone", {
         domainName: props.domain,
       });
-      const target = RecordTarget.fromAlias(
-        new CloudFrontTarget(imageHandlerCloudFrontApiGatewayLambda.cloudFrontWebDistribution)
-      );
+      const target = RecordTarget.fromAlias(new CloudFrontTarget(distribution));
 
       this.dnsRecord = new ARecord(this, "AAliasRecord", {
         recordName: props.subdomainPrefix,
@@ -265,16 +301,56 @@ export class BackEnd extends Construct {
       this.dnsRecord.applyRemovalPolicy(RemovalPolicy.DESTROY);
     }
 
-    addCfnSuppressRules(imageHandlerCloudFrontApiGatewayLambda.apiGateway, [
-      {
-        id: "W59",
-        reason:
-          "AWS::ApiGateway::Method AuthorizationType is set to 'NONE' because API Gateway behind CloudFront does not support AWS_IAM authentication",
-      },
-    ]);
+    // // Get reference to the underlying CloudFormation construct of the distribution
+    const cfnDistribution = distribution.node.defaultChild as CfnDistribution;
 
-    imageHandlerCloudFrontApiGatewayLambda.apiGateway.node.tryRemoveChild("Endpoint"); // we don't need the RestApi endpoint in the outputs
+    // // Override the OAC ID into the CloudFormation distribution CFN construct
+    cfnDistribution.addPropertyOverride("DistributionConfig.Origins.0.OriginAccessControlId", oac.getAtt("Id"));
 
-    this.domainName = imageHandlerCloudFrontApiGatewayLambda.cloudFrontWebDistribution.distributionDomainName;
+    // new CfnBucketPolicy(this, "UpdateBucketPolicyOAC", {
+    //   bucket: bucket.bucketName,
+    //   policyDocument: new PolicyDocument({
+    //     statements: [
+    //       new PolicyStatement({
+    //         actions: ["s3:GetObject", "s3:PutObject"],
+    //         resources: [bucket.arnForObjects("*")],
+    //         principals: [
+    //           new ServicePrincipal("cloudfront.amazonaws.com", {
+    //             conditions: {
+    //               ArnLike: {
+    //                 // Note if you do Lambda Function and CloudFront Distribution in different stacks
+    //                 // you'll most-likely end up with a circular dependency.
+    //                 // Important, don't specify region as CloudFront needs to access the function from all regions
+    //                 "aws:SourceArn": `arn:aws:cloudfront::${
+    //                   Stack.of(this).account
+    //                 }:distribution/${distribution.distributionId}`,
+    //               },
+    //             },
+    //           }),
+    //         ],
+    //       }),
+    //     ],
+    //   }),
+    // });
+    imageHandlerLambdaFunction.addPermission("OACPermission", {
+      action: "lambda:InvokeFunctionUrl",
+      // Note if you do Lambda Function and CloudFront Distribution in different stacks
+      // you'll most-likely end up with a circular dependency.
+      // Important, don't specify region as CloudFront needs to access the function from all regions
+      sourceArn: `arn:aws:cloudfront::${Stack.of(this).account}:distribution/${distribution.distributionId}`,
+      principal: new ServicePrincipal("cloudfront.amazonaws.com"),
+    });
+
+    // addCfnSuppressRules(imageHandlerCloudFrontApiGatewayLambda.apiGateway, [
+    //   {
+    //     id: "W59",
+    //     reason:
+    //       "AWS::ApiGateway::Method AuthorizationType is set to 'NONE' because API Gateway behind CloudFront does not support AWS_IAM authentication",
+    //   },
+    // ]);
+
+    // imageHandlerCloudFrontApiGatewayLambda.apiGateway.node.tryRemoveChild("Endpoint"); // we don't need the RestApi endpoint in the outputs
+
+    this.domainName = distribution.distributionDomainName;
   }
 }

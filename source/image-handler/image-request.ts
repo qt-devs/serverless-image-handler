@@ -12,7 +12,7 @@ import {
   ImageEdits,
   ImageFormatTypes,
   ImageHandlerError,
-  ImageHandlerEvent,
+  ImageHandlerEventFromCF,
   ImageRequestInfo,
   RequestTypes,
   StatusCodes,
@@ -42,7 +42,7 @@ export class ImageRequest {
    * @param imageRequestInfo Initialized image request information
    * @param event Lambda requrest body
    */
-  private determineOutputFormat(imageRequestInfo: ImageRequestInfo, event: ImageHandlerEvent): void {
+  private determineOutputFormat(imageRequestInfo: ImageRequestInfo, event: ImageHandlerEventFromCF): void {
     const outputFormat = this.getOutputFormat(event, imageRequestInfo.requestType);
     // if webp check reduction effort, if invalid value, use 4 (default in sharp)
     if (outputFormat === ImageFormatTypes.WEBP && imageRequestInfo.requestType === RequestTypes.DEFAULT) {
@@ -98,7 +98,7 @@ export class ImageRequest {
    * @param event Lambda request body.
    * @returns Initialized image request information.
    */
-  public async setup(event: ImageHandlerEvent): Promise<ImageRequestInfo> {
+  public async setup(event: ImageHandlerEventFromCF): Promise<ImageRequestInfo> {
     try {
       // await this.validateRequestSignature(event);
 
@@ -201,7 +201,7 @@ export class ImageRequest {
    * @param requestType Image handler request type.
    * @returns The name of the appropriate Amazon S3 bucket.
    */
-  public parseImageBucket(event: ImageHandlerEvent, requestType: RequestTypes): string {
+  public parseImageBucket(event: ImageHandlerEventFromCF, requestType: RequestTypes): string {
     if (requestType === RequestTypes.DEFAULT) {
       // Decode the image request
       const request = this.decodeRequest(event);
@@ -243,16 +243,16 @@ export class ImageRequest {
    * @param requestType Image handler request type.
    * @returns The edits to be made to the original image.
    */
-  public parseImageEdits(event: ImageHandlerEvent, requestType: RequestTypes): ImageEdits {
+  public parseImageEdits(event: ImageHandlerEventFromCF, requestType: RequestTypes): ImageEdits {
     if (requestType === RequestTypes.DEFAULT) {
       const decoded = this.decodeRequest(event);
       return decoded.edits;
     } else if (requestType === RequestTypes.THUMBOR) {
       const thumborMapping = new ThumborMapper();
-      return thumborMapping.mapPathToEdits(event.path);
+      return thumborMapping.mapPathToEdits(event.rawPath);
     } else if (requestType === RequestTypes.CUSTOM) {
       const thumborMapping = new ThumborMapper();
-      const parsedPath = thumborMapping.parseCustomPath(event.path);
+      const parsedPath = thumborMapping.parseCustomPath(event.rawPath);
       return thumborMapping.mapPathToEdits(parsedPath);
     } else {
       throw new ImageHandlerError(
@@ -269,7 +269,7 @@ export class ImageRequest {
    * @param requestType Type of the request.
    * @returns The name of the appropriate Amazon S3 key.
    */
-  public parseImageKey(event: ImageHandlerEvent, requestType: RequestTypes): string {
+  public parseImageKey(event: ImageHandlerEventFromCF, requestType: RequestTypes): string {
     if (requestType === RequestTypes.DEFAULT) {
       // Decode the image request and return the image key
       const { key } = this.decodeRequest(event);
@@ -277,7 +277,7 @@ export class ImageRequest {
     }
 
     if (requestType === RequestTypes.THUMBOR || requestType === RequestTypes.CUSTOM) {
-      let { path } = event;
+      let { rawPath } = event;
 
       if (requestType === RequestTypes.CUSTOM) {
         const { REWRITE_MATCH_PATTERN, REWRITE_SUBSTITUTION } = process.env;
@@ -288,14 +288,14 @@ export class ImageRequest {
           const parsedPatternString = REWRITE_MATCH_PATTERN.slice(1, REWRITE_MATCH_PATTERN.length - 1 - flags.length);
           const regExp = new RegExp(parsedPatternString, flags);
 
-          path = path.replace(regExp, REWRITE_SUBSTITUTION);
+          rawPath = rawPath.replace(regExp, REWRITE_SUBSTITUTION);
         } else {
-          path = path.replace(REWRITE_MATCH_PATTERN, REWRITE_SUBSTITUTION);
+          rawPath = rawPath.replace(REWRITE_MATCH_PATTERN, REWRITE_SUBSTITUTION);
         }
       }
 
       return decodeURIComponent(
-        path
+        rawPath
           .replace(/\/\d+x\d+:\d+x\d+(?=\/)/g, "")
           .replace(/\/\d+x\d+(?=\/)/g, "")
           .replace(/filters:watermark\(.*\)/u, "")
@@ -320,8 +320,8 @@ export class ImageRequest {
    * @param event Lambda request body.
    * @returns The request type.
    */
-  public parseRequestType(event: ImageHandlerEvent): RequestTypes {
-    const { path } = event;
+  public parseRequestType(event: ImageHandlerEventFromCF): RequestTypes {
+    const { rawPath } = event;
     const matchDefault = /^(\/?)([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
     const matchThumbor1 = /^(\/?)((fit-in)?|(filters:.+\(.?\))?|(unsafe)?)/i;
     const matchThumbor2 = /((.(?!(\.[^.\\/]+$)))*$)/i; // NOSONAR
@@ -342,13 +342,13 @@ export class ImageRequest {
       isBase64Encoded = false;
     }
 
-    if (matchDefault.test(path) && isBase64Encoded) {
+    if (matchDefault.test(rawPath) && isBase64Encoded) {
       // use sharp
       return RequestTypes.DEFAULT;
     } else if (definedEnvironmentVariables) {
       // use rewrite function then thumbor mappings
       return RequestTypes.CUSTOM;
-    } else if (matchThumbor1.test(path) && (matchThumbor2.test(path) || matchThumbor3.test(path))) {
+    } else if (matchThumbor1.test(rawPath) && (matchThumbor2.test(rawPath) || matchThumbor3.test(rawPath))) {
       // use thumbor mappings
       return RequestTypes.THUMBOR;
     } else {
@@ -367,7 +367,7 @@ export class ImageRequest {
    * @param requestType Image handler request type.
    * @returns (optional) The headers to be sent with the response.
    */
-  public parseImageHeaders(event: ImageHandlerEvent, requestType: RequestTypes): Headers {
+  public parseImageHeaders(event: ImageHandlerEventFromCF, requestType: RequestTypes): Headers {
     if (requestType === RequestTypes.DEFAULT) {
       const { headers } = this.decodeRequest(event);
       if (headers) {
@@ -382,11 +382,11 @@ export class ImageRequest {
    * @param event Lambda request body.
    * @returns The decoded from base-64 image request.
    */
-  public decodeRequest(event: ImageHandlerEvent): DefaultImageRequest {
-    const { path } = event;
+  public decodeRequest(event: ImageHandlerEventFromCF): DefaultImageRequest {
+    const { rawPath } = event;
 
-    if (path) {
-      const encoded = path.startsWith("/") ? path.slice(1) : path;
+    if (rawPath) {
+      const encoded = rawPath.startsWith("/") ? rawPath.slice(1) : rawPath;
       const toBuffer = Buffer.from(encoded, "base64");
       try {
         // To support European characters, 'ascii' was removed.
@@ -432,7 +432,7 @@ export class ImageRequest {
    * @param requestType The request type.
    * @returns The output format.
    */
-  public getOutputFormat(event: ImageHandlerEvent, requestType: RequestTypes = undefined): ImageFormatTypes {
+  public getOutputFormat(event: ImageHandlerEventFromCF, requestType: RequestTypes = undefined): ImageFormatTypes {
     const { AUTO_WEBP } = process.env;
     const accept = event.headers?.Accept || event.headers?.accept;
 
@@ -485,7 +485,7 @@ export class ImageRequest {
   //  * @returns A promise.
   //  * @throws Throws the error if validation is enabled and the provided signature is invalid.
   //  */
-  // private async validateRequestSignature(event: ImageHandlerEvent): Promise<void> {
+  // private async validateRequestSignature(event: ImageHandlerEventFromCF): Promise<void> {
   //   const { ENABLE_SIGNATURE, SECRETS_MANAGER, SECRET_KEY } = process.env;
 
   //   // Checks signature enabled

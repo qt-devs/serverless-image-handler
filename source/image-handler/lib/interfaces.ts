@@ -6,6 +6,12 @@ import sharp from "sharp";
 import { ImageFormatTypes, RequestTypes, StatusCodes } from "./enums";
 import { Headers, ImageEdits } from "./types";
 
+export interface ImageHandlerEventFromCF {
+  rawPath: string;
+  queryStringParameters: Record<string, string>;
+  headers: Record<string, string>;
+  requestContext: Record<string, any>;
+}
 export interface ImageHandlerEvent {
   path?: string;
   queryStringParameters?: {

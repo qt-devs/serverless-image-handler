@@ -5,7 +5,7 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
-      - npm install -g aws-cdk dotenv esbuild --unsafe-perm --progress=false --silent
+      - npm install -g aws-cdk dotenv-cli esbuild --unsafe-perm --progress=false --silent
   pre_build:
     commands:
       - cd source/constructs

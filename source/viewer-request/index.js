@@ -3,7 +3,7 @@ import cf from "cloudfront";
 
 /**
 @typedef {{ value: string }} Value;
-@typedef {{ uri: string; querystring: NodeJS.Dict<Value & Partial<{ multiValue: Value[] }>> }} Request;
+@typedef {{ uri: string; headers: Record<string, Value>; querystring: Record<string, Value & Partial<{ multiValue: Value[] }>> }} Request;
 @typedef {{
   request: Request;
   context: { requestId: string };
@@ -61,14 +61,52 @@ async function handler(event) {
 
     // verify signature matches so we know it's generated from us
     const secretKey = await kvsHandle.get("hmacSecret");
-    const hash = crypto.createHmac("sha256", secretKey).update(request.uri).digest("hex");
+    /** @type {string[]} */
+    const qsSorted = Object.keys(request.querystring)
+      .reduce((all, k) => {
+        if (request.querystring[k].multiValue) {
+          all = all.concat(request.querystring[k].multiValue.map((mv) => `${k}=${mv.value}`));
+        } else {
+          all.push(`${k}=${request.querystring[k].value}`);
+        }
+        return all;
+      }, [])
+      .sort();
 
+    let url = request.uri;
+    const qsWithoutSignature = qsSorted.filter((s) => !s.startsWith("signature="));
+    if (qsWithoutSignature.length) {
+      url += `?${qsWithoutSignature.join("&")}`;
+    }
+
+    const hash = crypto.createHmac("sha256", secretKey).update(url).digest("hex");
     if (hash !== request.querystring.signature.value) {
       return {
         statusCode: 403,
         body: { data: "Invalid signature", encoding: "text" },
       };
     }
+
+    // if valid then check for any expire qs
+    if (request.querystring.expires) {
+      const expiresInSec = Number(request.querystring.expires.value);
+      const date = expiresInSec * 1000;
+      const now = Date.now();
+      if (date < now) {
+        return {
+          statusCode: 400,
+          body: {
+            encoding: "text",
+            data: "Signature has expired, please request a new signature",
+          },
+        };
+      }
+    }
+
+    // create a copy of host value since cloudfront will override host header to be from cloudfront
+    request.headers["viewer-host"] = { value: request.headers.host.value };
+    // sort qs to have better cache hit ratio
+    request.querystring = qsSorted.join("&");
 
     return request;
   } catch (e) {

@@ -9,7 +9,7 @@ import { getOptions } from "../solution-utils/get-options";
 import { isNullOrWhiteSpace } from "../solution-utils/helpers";
 import { ImageHandler } from "./image-handler";
 import { ImageRequest } from "./image-request";
-import { Headers, ImageHandlerEvent, ImageHandlerExecutionResult, StatusCodes } from "./lib";
+import { Headers, ImageHandlerEvent, ImageHandlerEventFromCF, ImageHandlerExecutionResult, StatusCodes } from "./lib";
 import { SecretProvider } from "./secret-provider";
 
 const awsSdkOptions = getOptions();
@@ -23,20 +23,10 @@ const secretProvider = new SecretProvider(secretsManagerClient);
  * @param event The image handler request event.
  * @returns Processed request response.
  */
-export async function handler(event: ImageHandlerEvent): Promise<ImageHandlerExecutionResult> {
+export async function handler(event: ImageHandlerEventFromCF): Promise<ImageHandlerExecutionResult> {
   console.info("Received event:", JSON.stringify(event, null, 2));
 
   const isAlb = event.requestContext && Object.prototype.hasOwnProperty.call(event.requestContext, "elb");
-
-  if (event.path === "/favicon.ico") {
-    const { body } = getErrorResponse({ status: StatusCodes.NOT_FOUND });
-    return {
-      statusCode: StatusCodes.NOT_FOUND,
-      isBase64Encoded: false,
-      headers: getResponseHeaders(true, isAlb),
-      body,
-    };
-  }
 
   const imageRequest = new ImageRequest(s3Client, secretProvider);
   const imageHandler = new ImageHandler(s3Client, rekognitionClient);
