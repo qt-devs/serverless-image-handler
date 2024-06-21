@@ -9,7 +9,8 @@ phases:
   pre_build:
     commands:
       - cd source/constructs
-      - rm -rf node_modules/
+      - rm -rf node_modules/ package-lock.json
+      - ls .
       - npm install
       - ls node_modules
   # build:
