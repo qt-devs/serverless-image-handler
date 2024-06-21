@@ -10,6 +10,11 @@ phases:
     commands:
       - cd source/constructs
       - npm install
+      - cd ../custom-resource
+      - npm install
+      - cd ../image-handler
+      - npm install
+      - cd ../constructs
   # build:
   #   commands:
   #     - npm run build # we don't need to build, deploy will build before deploying

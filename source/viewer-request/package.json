@@ -12,9 +12,5 @@
   "scripts": {
     "clean": "rm -rf node_modules/ dist/ coverage/",
     "test": "jest --coverage --silent"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "@aws-sdk/client-secrets-manager": "^3.596.0"
   }
 }
