@@ -148,6 +148,7 @@ export class ThumborMapper {
       ImageFormatTypes.TIFF,
       ImageFormatTypes.WEBP,
       ImageFormatTypes.GIF,
+      ImageFormatTypes.AVIF,
     ];
 
     if (acceptedValues.includes(imageFormatType)) {

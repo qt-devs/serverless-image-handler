@@ -71,6 +71,11 @@ export class ImageHandler {
       // Include reduction effort for webp images if included
       if (imageRequestInfo.outputFormat === ImageFormatTypes.WEBP && typeof imageRequestInfo.effort !== "undefined") {
         modifiedOutputImage.webp({ effort: imageRequestInfo.effort });
+      } else if (
+        imageRequestInfo.outputFormat === ImageFormatTypes.AVIF &&
+        typeof imageRequestInfo.effort !== "undefined"
+      ) {
+        modifiedOutputImage.avif({ effort: imageRequestInfo.effort });
       } else {
         modifiedOutputImage.toFormat(ImageHandler.convertImageFormatType(imageRequestInfo.outputFormat));
       }
@@ -664,6 +669,8 @@ export class ImageHandler {
         return "raw";
       case ImageFormatTypes.GIF:
         return "gif";
+      case ImageFormatTypes.AVIF:
+        return "avif";
       default:
         throw new ImageHandlerError(
           StatusCodes.INTERNAL_SERVER_ERROR,

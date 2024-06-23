@@ -45,7 +45,10 @@ export class ImageRequest {
   private determineOutputFormat(imageRequestInfo: ImageRequestInfo, event: ImageHandlerEventFromCF): void {
     const outputFormat = this.getOutputFormat(event, imageRequestInfo.requestType);
     // if webp check reduction effort, if invalid value, use 4 (default in sharp)
-    if (outputFormat === ImageFormatTypes.WEBP && imageRequestInfo.requestType === RequestTypes.DEFAULT) {
+    if (
+      (outputFormat === ImageFormatTypes.WEBP || outputFormat === ImageFormatTypes.AVIF) &&
+      imageRequestInfo.requestType === RequestTypes.DEFAULT
+    ) {
       const decoded = this.decodeRequest(event);
       if (typeof decoded.effort !== "undefined") {
         const effort = Math.trunc(decoded.effort);
@@ -74,6 +77,7 @@ export class ImageRequest {
         ImageFormatTypes.TIFF,
         ImageFormatTypes.HEIF,
         ImageFormatTypes.GIF,
+        ImageFormatTypes.AVIF,
       ];
 
       imageRequestInfo.contentType = `image/${imageRequestInfo.outputFormat}`;
@@ -433,10 +437,12 @@ export class ImageRequest {
    * @returns The output format.
    */
   public getOutputFormat(event: ImageHandlerEventFromCF, requestType: RequestTypes = undefined): ImageFormatTypes {
-    const { AUTO_WEBP } = process.env;
+    const { AUTO_WEBP, AUTO_AVIF } = process.env;
     const accept = event.headers?.Accept || event.headers?.accept;
 
-    if (AUTO_WEBP === "Yes" && accept && accept.includes(ContentTypes.WEBP)) {
+    if (AUTO_AVIF === "Yes" && accept && accept.includes(ContentTypes.WEBP)) {
+      return ImageFormatTypes.AVIF;
+    } else if (AUTO_WEBP === "Yes" && accept && accept.includes(ContentTypes.WEBP)) {
       return ImageFormatTypes.WEBP;
     } else if (requestType === RequestTypes.DEFAULT) {
       const decoded = this.decodeRequest(event);

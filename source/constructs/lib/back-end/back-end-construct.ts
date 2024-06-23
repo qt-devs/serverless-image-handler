@@ -113,6 +113,7 @@ export class BackEnd extends Construct {
       entry: path.join(__dirname, "../../../image-handler/index.ts"),
       environment: {
         AUTO_WEBP: props.autoWebP,
+        AUTO_AVIF: "Yes",
         CORS_ENABLED: props.corsEnabled,
         CORS_ORIGIN: props.corsOrigin,
         SOURCE_BUCKETS: props.sourceBuckets,
