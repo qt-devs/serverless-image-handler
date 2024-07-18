@@ -103,53 +103,53 @@ export class ImageRequest {
    * @returns Initialized image request information.
    */
   public async setup(event: ImageHandlerEventFromCF): Promise<ImageRequestInfo> {
-    try {
-      // await this.validateRequestSignature(event);
+    // try {
+    // await this.validateRequestSignature(event);
 
-      let imageRequestInfo: ImageRequestInfo = <ImageRequestInfo>{};
+    let imageRequestInfo: ImageRequestInfo = <ImageRequestInfo>{};
 
-      imageRequestInfo.requestType = this.parseRequestType(event);
-      imageRequestInfo.bucket = this.parseImageBucket(event, imageRequestInfo.requestType);
-      imageRequestInfo.key = this.parseImageKey(event, imageRequestInfo.requestType);
-      imageRequestInfo.edits = this.parseImageEdits(event, imageRequestInfo.requestType);
+    imageRequestInfo.requestType = this.parseRequestType(event);
+    imageRequestInfo.bucket = this.parseImageBucket(event, imageRequestInfo.requestType);
+    imageRequestInfo.key = this.parseImageKey(event, imageRequestInfo.requestType);
+    imageRequestInfo.edits = this.parseImageEdits(event, imageRequestInfo.requestType);
 
-      const originalImage = await this.getOriginalImage(imageRequestInfo.bucket, imageRequestInfo.key);
-      imageRequestInfo = { ...imageRequestInfo, ...originalImage };
+    const originalImage = await this.getOriginalImage(imageRequestInfo.bucket, imageRequestInfo.key);
+    imageRequestInfo = { ...imageRequestInfo, ...originalImage };
 
-      imageRequestInfo.headers = this.parseImageHeaders(event, imageRequestInfo.requestType);
+    imageRequestInfo.headers = this.parseImageHeaders(event, imageRequestInfo.requestType);
 
-      // If the original image is SVG file and it has any edits but no output format, change the format to PNG.
-      if (
-        imageRequestInfo.contentType === ContentTypes.SVG &&
-        imageRequestInfo.edits &&
-        Object.keys(imageRequestInfo.edits).length > 0 &&
-        !imageRequestInfo.edits.toFormat
-      ) {
-        imageRequestInfo.outputFormat = ImageFormatTypes.PNG;
-      }
-
-      /* Decide the output format of the image.
-       * 1) If the format is provided, the output format is the provided format.
-       * 2) If headers contain "Accept: image/webp", the output format is webp.
-       * 3) Use the default image format for the rest of cases.
-       */
-      if (
-        imageRequestInfo.contentType !== ContentTypes.SVG ||
-        imageRequestInfo.edits.toFormat ||
-        imageRequestInfo.outputFormat
-      ) {
-        this.determineOutputFormat(imageRequestInfo, event);
-      }
-
-      // Fix quality for Thumbor and Custom request type if outputFormat is different from quality type.
-      this.fixQuality(imageRequestInfo);
-
-      return imageRequestInfo;
-    } catch (error) {
-      console.error(error);
-
-      throw error;
+    // If the original image is SVG file and it has any edits but no output format, change the format to PNG.
+    if (
+      imageRequestInfo.contentType === ContentTypes.SVG &&
+      imageRequestInfo.edits &&
+      Object.keys(imageRequestInfo.edits).length > 0 &&
+      !imageRequestInfo.edits.toFormat
+    ) {
+      imageRequestInfo.outputFormat = ImageFormatTypes.PNG;
     }
+
+    /* Decide the output format of the image.
+     * 1) If the format is provided, the output format is the provided format.
+     * 2) If headers contain "Accept: image/webp", the output format is webp.
+     * 3) Use the default image format for the rest of cases.
+     */
+    if (
+      imageRequestInfo.contentType !== ContentTypes.SVG ||
+      imageRequestInfo.edits.toFormat ||
+      imageRequestInfo.outputFormat
+    ) {
+      this.determineOutputFormat(imageRequestInfo, event);
+    }
+
+    // Fix quality for Thumbor and Custom request type if outputFormat is different from quality type.
+    this.fixQuality(imageRequestInfo);
+
+    return imageRequestInfo;
+    // } catch (error) {
+    //   console.error(error);
+
+    //   throw error;
+    // }
   }
 
   /**
