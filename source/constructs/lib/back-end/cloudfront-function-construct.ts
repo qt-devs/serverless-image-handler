@@ -54,7 +54,7 @@ export class CfnFunctionConstruct extends Construct {
       ),
     });
 
-    const functionCode = `const KVS_ID="${keyValueStore.keyValueStoreId}";\n${source.replace(/(?:[\r\n]|^)(\/\*.+?[\r\n]*\*\/)/gs, "")}`;
+    const functionCode = `const NODE_ENV="${process.env.NODE_ENV || "development"}";\nconst KVS_ID="${keyValueStore.keyValueStoreId}";\n${source.replace(/(?:[\r\n]|^)(\/\*.+?[\r\n]*\*\/)/gs, "")}`;
 
     const viewerReqLambdaName = "ViewerRequestFn";
 

@@ -4,6 +4,7 @@
 import { RekognitionClient } from "@aws-sdk/client-rekognition";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { getOptions } from "../solution-utils/get-options";
 import { isNullOrWhiteSpace } from "../solution-utils/helpers";
@@ -34,6 +35,19 @@ export async function handler(event: ImageHandlerEventFromCF): Promise<ImageHand
   try {
     const imageRequestInfo = await imageRequest.setup(event);
 
+    if (!imageRequestInfo.edits) {
+      let headers = getResponseHeaders(false, isAlb);
+      const command = new GetObjectCommand({ Bucket: imageRequestInfo.bucket, Key: imageRequestInfo.key });
+      const signedDownloadUrl = await getSignedUrl(s3Client, command, { expiresIn: 600 }); // they have 10 min to start the download before link expires
+      headers["Location"] = signedDownloadUrl;
+      headers["Content-Type"] = "text/plain";
+      return {
+        statusCode: StatusCodes.REDIRECT,
+        headers,
+        isBase64Encoded: false,
+        body: "",
+      };
+    }
     const processedRequest = await imageHandler.process(imageRequestInfo);
 
     let headers = getResponseHeaders(false, isAlb);

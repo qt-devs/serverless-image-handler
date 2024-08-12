@@ -8,6 +8,7 @@ export enum StatusCodes {
   NOT_FOUND = 404,
   REQUEST_TOO_LONG = 413,
   INTERNAL_SERVER_ERROR = 500,
+  REDIRECT = 302,
 }
 
 export enum RequestTypes {

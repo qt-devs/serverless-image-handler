@@ -43,6 +43,10 @@ export class ImageRequest {
    * @param event Lambda requrest body
    */
   private determineOutputFormat(imageRequestInfo: ImageRequestInfo, event: ImageHandlerEventFromCF): void {
+    if (!imageRequestInfo.edits) {
+      // do nothing if there is no edits, we likely want to download original file
+      return;
+    }
     const outputFormat = this.getOutputFormat(event, imageRequestInfo.requestType);
     // if webp check reduction effort, if invalid value, use 4 (default in sharp)
     if (

@@ -43,7 +43,7 @@ async function getSecret() {
  * @returns {Promise<RequestViewerResponse | Request>}
  */
 async function handler(event) {
-  console.log("Received event: " + JSON.stringify(event, null, 2));
+  // console.log("Received event: " + JSON.stringify(event, null, 2));
   const request = event.request;
 
   if (/favicon\.ico$/gi.test(request.uri)) {
@@ -104,13 +104,15 @@ async function handler(event) {
     }
 
     // create a copy of host value since cloudfront will override host header to be from cloudfront
-    request.headers["viewer-host"] = { value: request.headers.host.value };
+    if (request.headers.host) {
+      request.headers["viewer-host"] = { value: request.headers.host.value };
+    }
     // sort qs to have better cache hit ratio
     request.querystring = qsSorted.join("&");
 
     return request;
   } catch (e) {
-    console.error(e);
+    // console.error(e); // console.error not available for CF functions
     return {
       statusCode: 400,
       body: {
