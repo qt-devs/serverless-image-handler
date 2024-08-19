@@ -28,6 +28,11 @@ import { Readable } from "node:stream";
 
 export class ImageHandler {
   private readonly LAMBDA_PAYLOAD_LIMIT = 6 * 1024 * 1024;
+  private readonly SharpDefaultOptions: sharp.SharpOptions = {
+    failOn: "none",
+    limitInputPixels: false, //300000000, // if we want to support 300 mega pixels - will need to also upgrade AWS Lambda memory to 2GB+
+    sequentialRead: true, // useful for reducing memory usage on lambda
+  };
 
   constructor(
     private readonly s3Client: S3Client,
@@ -45,13 +50,14 @@ export class ImageHandler {
   private async instantiateSharpImage(originalImage: Buffer, edits: ImageEdits, options: Object): Promise<sharp.Sharp> {
     let image: sharp.Sharp = null;
 
+    const mergedOpt = { ...this.SharpDefaultOptions, ...options };
     if (edits.rotate !== undefined && edits.rotate === null) {
-      image = sharp(originalImage, options);
+      image = sharp(originalImage, mergedOpt);
     } else {
-      const metadata = await sharp(originalImage, options).metadata();
+      const metadata = await sharp(originalImage, mergedOpt).metadata();
       image = metadata.orientation
-        ? sharp(originalImage, options).withMetadata({ orientation: metadata.orientation })
-        : sharp(originalImage, options).withMetadata();
+        ? sharp(originalImage, mergedOpt).withMetadata({ orientation: metadata.orientation })
+        : sharp(originalImage, mergedOpt).withMetadata();
     }
 
     return image;
@@ -91,7 +97,7 @@ export class ImageHandler {
    */
   async process(imageRequestInfo: ImageRequestInfo): Promise<string> {
     const { originalImage, edits } = imageRequestInfo;
-    const options = { failOnError: false, animated: imageRequestInfo.contentType === ContentTypes.GIF };
+    const options = { animated: imageRequestInfo.contentType === ContentTypes.GIF };
     let base64EncodedImage = "";
 
     // Apply edits if specified
@@ -256,12 +262,12 @@ export class ImageHandler {
       const imageBuffer = await originalImage.toBuffer();
       const resizeOptions: ResizeOptions = edits.resize;
 
-      imageMetadata = await sharp(imageBuffer).resize(resizeOptions).metadata();
+      imageMetadata = await sharp(imageBuffer, this.SharpDefaultOptions).resize(resizeOptions).metadata();
     }
 
     const { bucket, key, wRatio, hRatio, alpha, options } = edits.overlayWith;
     const overlay = await this.getOverlayImage(bucket, key, wRatio, hRatio, alpha, imageMetadata);
-    const overlayMetadata = await sharp(overlay).metadata();
+    const overlayMetadata = await sharp(overlay, this.SharpDefaultOptions).metadata();
     const overlayOption: OverlayOptions = { ...options, input: overlay };
 
     if (options) {
@@ -363,7 +369,7 @@ export class ImageHandler {
 
       // Need to break out into another sharp pipeline to allow for resize after composite
       const data = await originalImage.composite(overlayOptions).toBuffer();
-      return sharp(data).withMetadata().trim();
+      return sharp(data, this.SharpDefaultOptions).withMetadata().trim();
     }
 
     return originalImage;
@@ -491,7 +497,7 @@ export class ImageHandler {
       const alphaValue = zeroToHundred.test(alpha) ? parseInt(alpha) : 0;
       const imageBuffer = await buffer(overlayImage.Body as Readable);
 
-      return await sharp(imageBuffer)
+      return await sharp(imageBuffer, this.SharpDefaultOptions)
         .resize(resizeOptions)
         .composite([
           {
@@ -686,7 +692,7 @@ export class ImageHandler {
    * @returns object containing image buffer data and original image format.
    */
   private async getRekognitionCompatibleImage(image: sharp.Sharp): Promise<RekognitionCompatibleImage> {
-    const sharpImage = sharp(await image.toBuffer()); // Reload sharp image to ensure current metadata
+    const sharpImage = sharp(await image.toBuffer(), this.SharpDefaultOptions); // Reload sharp image to ensure current metadata
     const metadata = await sharpImage.metadata();
     const format = metadata.format;
     let imageBuffer: { data: Buffer; info: sharp.OutputInfo };
