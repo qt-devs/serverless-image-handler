@@ -24,6 +24,7 @@ const {
   PHX_SECRETMANAGER_NAME,
   PHX_SECRETMANAGER_KEY = "hmacSecret",
   AWS_REGION = "us-east-1",
+  LAMBDA_MEMORY_SIZE = 1536,
 } = process.env;
 if (DIST_OUTPUT_BUCKET && SOLUTION_NAME && VERSION)
   synthesizer = new DefaultStackSynthesizer({
@@ -63,7 +64,7 @@ const secretsManagerClient = new SecretsManagerClient();
     secretsManager,
     secretsManagerKey: PHX_SECRETMANAGER_KEY,
     secretsManagerValues: JSON.parse(secretsManagerValues.SecretString!),
-    lambdaMemorySize: env === "PROD" ? 4096 : 1536,
+    lambdaMemorySize: Number(LAMBDA_MEMORY_SIZE),
     env: {
       region: AWS_REGION,
       account: AWS_ACCOUNT,
