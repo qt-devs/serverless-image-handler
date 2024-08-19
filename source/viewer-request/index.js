@@ -43,7 +43,7 @@ async function getSecret() {
  * @returns {Promise<RequestViewerResponse | Request>}
  */
 async function handler(event) {
-  // console.log("Received event: " + JSON.stringify(event, null, 2));
+  console.log("Received event: " + JSON.stringify(event, null, 2));
   const request = event.request;
 
   if (/favicon\.ico$/gi.test(request.uri)) {
