@@ -63,6 +63,7 @@ const secretsManagerClient = new SecretsManagerClient();
     secretsManager,
     secretsManagerKey: PHX_SECRETMANAGER_KEY,
     secretsManagerValues: JSON.parse(secretsManagerValues.SecretString!),
+    lambdaMemorySize: env === "PROD" ? 4096 : 1536,
     env: {
       region: AWS_REGION,
       account: AWS_ACCOUNT,

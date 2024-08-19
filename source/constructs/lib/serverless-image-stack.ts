@@ -22,6 +22,7 @@ export interface ServerlessImageHandlerStackProps extends StackProps {
   readonly secretsManager: string;
   readonly secretsManagerKey: string;
   readonly secretsManagerValues: NodeJS.Dict<string>;
+  readonly lambdaMemorySize: number;
 }
 
 export class ServerlessImageHandlerStack extends Stack {
@@ -208,6 +209,7 @@ export class ServerlessImageHandlerStack extends Stack {
       uuid: commonResources.customResources.uuid,
       cloudFrontPriceClass: cloudFrontPriceClassParameter.valueAsString,
       viewerRequestFn: cfnFunction.viewerRequestFn,
+      lambdaMemorySize: props.lambdaMemorySize,
       // publicKeyId: props.secretsManagerValues.cfnKeyPairId!,
       ...solutionConstructProps,
     });

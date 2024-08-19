@@ -47,6 +47,7 @@ export interface BackEndProps extends SolutionConstructProps {
   readonly uuid: string;
   readonly cloudFrontPriceClass: string;
   readonly viewerRequestFn: Function;
+  readonly lambdaMemorySize: number;
   // /**
   //  * cloudfront public key for cloudfront sign url
   //  */
@@ -102,7 +103,7 @@ export class BackEnd extends Construct {
     ]);
     imageHandlerLambdaFunctionRole.attachInlinePolicy(imageHandlerLambdaFunctionRolePolicy);
 
-    const memorySize = 1536;
+    const memorySize = props.lambdaMemorySize;
     const imageHandlerLambdaFunction = new NodejsFunction(this, "ImagerFn", {
       description: `${props.solutionName} (${props.solutionVersion}): Performs image edits and manipulations`,
       memorySize,
