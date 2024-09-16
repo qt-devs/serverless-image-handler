@@ -30,7 +30,6 @@ export async function handler(event: ImageHandlerEventFromCF): Promise<ImageHand
 
   const isAlb = event.requestContext && Object.prototype.hasOwnProperty.call(event.requestContext, "elb");
 
-  const appId = event.queryStringParameters?.appId;
   const imageRequest = new ImageRequest(s3Client, secretProvider);
   const imageHandler = new ImageHandler(s3Client, rekognitionClient);
 
@@ -38,7 +37,7 @@ export async function handler(event: ImageHandlerEventFromCF): Promise<ImageHand
     const imageRequestInfo = await imageRequest.setup(event);
 
     let headers = getResponseHeaders(false, isAlb);
-    if (!isAccountActive(appId, imageRequestInfo.key)) {
+    if (!isAccountActive(imageRequestInfo.appId, imageRequestInfo.key)) {
       headers["Content-Type"] = "plain/text";
       return {
         statusCode: StatusCodes.FORBIDDEN,
@@ -50,7 +49,7 @@ export async function handler(event: ImageHandlerEventFromCF): Promise<ImageHand
 
     if (!imageRequestInfo.edits) {
       let headers = getResponseHeaders(false, isAlb);
-      const command = new GetObjectCommand({ Bucket: imageRequestInfo.bucket, Key: imageRequestInfo.key });
+      const command = new GetObjectCommand({ Bucket: imageRequestInfo.bucket, Key: imageRequestInfo.fullKey });
       const signedDownloadUrl = await getSignedUrl(s3Client, command, { expiresIn: 600 }); // they have 10 min to start the download before link expires
       headers["Location"] = signedDownloadUrl;
       headers["Content-Type"] = "text/plain";

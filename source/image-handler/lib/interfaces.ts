@@ -47,7 +47,11 @@ export interface BoxSize {
 export interface ImageRequestInfo {
   requestType: RequestTypes;
   bucket: string;
+  // this is the last part of the key, after the appId
   key: string;
+  // this is the full key, including the appId, always use this for s3 operations
+  fullKey: string;
+  appId: string;
   edits?: ImageEdits;
   originalImage: Buffer;
   headers?: Headers;

@@ -115,10 +115,12 @@ export class ImageRequest {
 
     imageRequestInfo.requestType = this.parseRequestType(event);
     imageRequestInfo.bucket = this.parseImageBucket(event, imageRequestInfo.requestType);
+    imageRequestInfo.appId = event.queryStringParameters?.appId;
     imageRequestInfo.key = this.parseImageKey(event, imageRequestInfo.requestType);
+    imageRequestInfo.fullKey = `${imageRequestInfo.appId}/${imageRequestInfo.key}`;
     imageRequestInfo.edits = this.parseImageEdits(event, imageRequestInfo.requestType);
 
-    const originalImage = await this.getOriginalImage(imageRequestInfo.bucket, imageRequestInfo.key);
+    const originalImage = await this.getOriginalImage(imageRequestInfo.bucket, imageRequestInfo.fullKey);
     imageRequestInfo = { ...imageRequestInfo, ...originalImage };
 
     imageRequestInfo.headers = this.parseImageHeaders(event, imageRequestInfo.requestType);
