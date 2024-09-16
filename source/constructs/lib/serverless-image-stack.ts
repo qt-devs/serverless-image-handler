@@ -23,6 +23,7 @@ export interface ServerlessImageHandlerStackProps extends StackProps {
   readonly secretsManagerKey: string;
   readonly secretsManagerValues: NodeJS.Dict<string>;
   readonly lambdaMemorySize: number;
+  readonly tableNamePrefix: string;
 }
 
 export class ServerlessImageHandlerStack extends Stack {
@@ -108,7 +109,7 @@ export class ServerlessImageHandlerStack extends Stack {
       type: "String",
       description:
         "The name of AWS Secrets Manager secret key. You need to create secret key with this key name. The secret value would be used to check signature.",
-      default: "hmacSecret",
+      default: "HMAC_SECRET",
     });
 
     const enableDefaultFallbackImageParameter = new CfnParameter(this, "EnableDefaultFallbackImageParameter", {
@@ -210,6 +211,7 @@ export class ServerlessImageHandlerStack extends Stack {
       cloudFrontPriceClass: cloudFrontPriceClassParameter.valueAsString,
       viewerRequestFn: cfnFunction.viewerRequestFn,
       lambdaMemorySize: props.lambdaMemorySize,
+      tableNamePrefix: props.tableNamePrefix,
       // publicKeyId: props.secretsManagerValues.cfnKeyPairId!,
       ...solutionConstructProps,
     });

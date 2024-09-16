@@ -23,6 +23,7 @@ import { Readable } from "stream";
 
 type OriginalImageInfo = Partial<{
   contentType: string;
+  /** @deprecated use cacheControl */
   expires: string;
   lastModified: string;
   cacheControl: string;
@@ -180,9 +181,9 @@ export class ImageRequest {
         result.contentType = "image";
       }
 
-      if (originalImage.Expires) {
-        result.expires = new Date(originalImage.Expires).toUTCString();
-      }
+      // if (originalImage.ExpiresString) {
+      //   result.expires = new Date(originalImage.ExpiresString).toUTCString();
+      // }
 
       if (originalImage.LastModified) {
         result.lastModified = new Date(originalImage.LastModified).toUTCString();

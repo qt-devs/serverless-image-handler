@@ -12,6 +12,7 @@ import { ImageHandler } from "./image-handler";
 import { ImageRequest } from "./image-request";
 import { Headers, ImageHandlerEvent, ImageHandlerEventFromCF, ImageHandlerExecutionResult, StatusCodes } from "./lib";
 import { SecretProvider } from "./secret-provider";
+import { isAccountActive } from "./authenticate-request";
 
 const awsSdkOptions = getOptions();
 const s3Client = new S3Client(awsSdkOptions);
@@ -29,11 +30,23 @@ export async function handler(event: ImageHandlerEventFromCF): Promise<ImageHand
 
   const isAlb = event.requestContext && Object.prototype.hasOwnProperty.call(event.requestContext, "elb");
 
+  const appId = event.queryStringParameters?.appId;
   const imageRequest = new ImageRequest(s3Client, secretProvider);
   const imageHandler = new ImageHandler(s3Client, rekognitionClient);
 
   try {
     const imageRequestInfo = await imageRequest.setup(event);
+
+    let headers = getResponseHeaders(false, isAlb);
+    if (!isAccountActive(appId, imageRequestInfo.key)) {
+      headers["Content-Type"] = "plain/text";
+      return {
+        statusCode: StatusCodes.FORBIDDEN,
+        isBase64Encoded: false,
+        headers,
+        body: "Your account is not active",
+      };
+    }
 
     if (!imageRequestInfo.edits) {
       let headers = getResponseHeaders(false, isAlb);
@@ -50,10 +63,9 @@ export async function handler(event: ImageHandlerEventFromCF): Promise<ImageHand
     }
     const processedRequest = await imageHandler.process(imageRequestInfo);
 
-    let headers = getResponseHeaders(false, isAlb);
     headers["Content-Type"] = imageRequestInfo.contentType;
     // eslint-disable-next-line dot-notation
-    headers["Expires"] = imageRequestInfo.expires;
+    // headers["Expires"] = imageRequestInfo.expires;
     headers["Last-Modified"] = imageRequestInfo.lastModified;
     headers["Cache-Control"] = imageRequestInfo.cacheControl;
 

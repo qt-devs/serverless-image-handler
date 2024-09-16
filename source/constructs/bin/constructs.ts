@@ -20,9 +20,8 @@ const {
   PHX_DOMAIN,
   PHX_SUBDOMAIN_PREFIX,
   PHX_CERTIFICATE_ARN,
-  PHX_S3_BUCKET,
   PHX_SECRETMANAGER_NAME,
-  PHX_SECRETMANAGER_KEY = "hmacSecret",
+  PHX_SECRETMANAGER_KEY = "HMAC_SECRET",
   AWS_REGION = "us-east-1",
   LAMBDA_MEMORY_SIZE = 1536,
 } = process.env;
@@ -49,7 +48,6 @@ const secretsManagerClient = new SecretsManagerClient();
       SecretId: secretsManager,
     })
   );
-
   // eslint-disable-next-line no-new
   new ServerlessImageHandlerStack(app, `ImageHandlerStack-${env}`, {
     synthesizer,
@@ -60,11 +58,12 @@ const secretsManagerClient = new SecretsManagerClient();
     domain: PHX_DOMAIN || "",
     subdomainPrefix: PHX_SUBDOMAIN_PREFIX ?? "media",
     certificateArn: PHX_CERTIFICATE_ARN || "",
-    sourceBuckets: PHX_S3_BUCKET ?? `phx-${env}-storage`.toLowerCase(),
+    sourceBuckets: `phx-${env}-storage`.toLowerCase(),
     secretsManager,
     secretsManagerKey: PHX_SECRETMANAGER_KEY,
     secretsManagerValues: JSON.parse(secretsManagerValues.SecretString!),
     lambdaMemorySize: Number(LAMBDA_MEMORY_SIZE),
+    tableNamePrefix: `PHX-${env}`,
     env: {
       region: AWS_REGION,
       account: AWS_ACCOUNT,

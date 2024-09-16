@@ -11,5 +11,5 @@
     "types": ["node", "@types/jest"]
   },
   "include": ["**/*.ts"],
-  "exclude": ["package", "dist", "**/*.map"]
+  "exclude": ["**/*.map"]
 }

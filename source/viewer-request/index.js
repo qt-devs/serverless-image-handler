@@ -52,15 +52,23 @@ async function handler(event) {
     };
   }
   try {
+    // always require signature for all requests so we can validate them
     if (!request.querystring.signature) {
       return {
         statusCode: 401, // unauthorized
         body: { data: "Missing signature", encoding: "text" },
       };
     }
+    // always require appId for all requests so we can track bandwidth by app
+    if (!request.querystring.appId) {
+      return {
+        statusCode: 400,
+        body: { data: "Missing App Id", encoding: "text" },
+      };
+    }
 
     // verify signature matches so we know it's generated from us
-    const secretKey = await kvsHandle.get("hmacSecret");
+    const secretKey = await kvsHandle.get("HMAC_SECRET");
     /** @type {string[]} */
     const qsSorted = Object.keys(request.querystring)
       .reduce((all, k) => {

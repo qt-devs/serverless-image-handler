@@ -32,20 +32,13 @@ export class CfnFunctionConstruct extends Construct {
     const viewerRequestSrcPath = path.join(__dirname, "../../../viewer-request/index.js");
 
     const source = fs.readFileSync(viewerRequestSrcPath, { encoding: "utf8" });
-    // const output = ts.transpileModule(source, {
-    //   compilerOptions: {
-    //     module: ts.ModuleKind.ESNext,
-    //     moduleResolution: ts.ModuleResolutionKind.NodeNext,
-    //     types: ["node"],
-    //   },
-    // });
 
-    const keyValueStore = new KeyValueStore(this, "KeyValueStore", {
-      keyValueStoreName: `${this.node.id}-KeyValueStore`,
+    const keyValueStore = new KeyValueStore(this, "ViewerRequestKeyValueStore", {
+      keyValueStoreName: `${this.node.id}-ViewerRequestKeyValueStore`,
       source: ImportSource.fromInline(
         JSON.stringify({
           data: Object.keys(props.secretsManagerValues)
-            .filter((key) => key === "hmacSecret") // we only want 1 key
+            .filter((key) => key === "HMAC_SECRET") // we only want 1 key
             .map((key) => ({
               key,
               value: props.secretsManagerValues[key],

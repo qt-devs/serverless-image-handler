@@ -48,6 +48,7 @@ export interface BackEndProps extends SolutionConstructProps {
   readonly cloudFrontPriceClass: string;
   readonly viewerRequestFn: Function;
   readonly lambdaMemorySize: number;
+  readonly tableNamePrefix: string;
   // /**
   //  * cloudfront public key for cloudfront sign url
   //  */
@@ -123,6 +124,7 @@ export class BackEnd extends Construct {
         ENABLE_SIGNATURE: props.enableSignature,
         SECRETS_MANAGER: props.secretsManager,
         SECRET_KEY: props.secretsManagerKey,
+        TABLE_NAME_PREFIX: props.tableNamePrefix,
         ENABLE_DEFAULT_FALLBACK_IMAGE: props.enableDefaultFallbackImage,
         DEFAULT_FALLBACK_IMAGE_BUCKET: props.fallbackImageS3Bucket,
         DEFAULT_FALLBACK_IMAGE_KEY: props.fallbackImageS3KeyBucket,
@@ -168,13 +170,13 @@ export class BackEnd extends Construct {
       maxTtl: Duration.days(365),
       enableAcceptEncodingGzip: false, // IMPORTANT: keep this false, it improves cache hit ratio
       headerBehavior: CacheHeaderBehavior.allowList("origin", "accept"),
-      queryStringBehavior: CacheQueryStringBehavior.allowList("signature"),
+      queryStringBehavior: CacheQueryStringBehavior.allowList("signature", "appId"),
     });
 
     const originRequestPolicy = new OriginRequestPolicy(this, "OriginRequestPolicy", {
       originRequestPolicyName: `ImageHandlerStack-${props.uuid}`,
       headerBehavior: CacheHeaderBehavior.allowList("origin", "accept"),
-      queryStringBehavior: CacheQueryStringBehavior.allowList("signature", "expires"),
+      queryStringBehavior: CacheQueryStringBehavior.allowList("signature", "appId", "expires"),
     });
 
     // const apiGatewayRestApi = RestApi.fromRestApiId(
