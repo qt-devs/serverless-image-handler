@@ -191,7 +191,7 @@ export class ImageRequest {
         result.lastModified = new Date(originalImage.LastModified).toUTCString();
       }
 
-      result.cacheControl = originalImage.CacheControl ?? "max-age=31536000,public";
+      result.cacheControl = originalImage.CacheControl ?? "max-age=2592000,public,must-revalidate"; // default 30 days cache
       result.originalImage = imageBuffer;
 
       return result;

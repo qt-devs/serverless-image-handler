@@ -37,7 +37,8 @@ export async function handler(event: ImageHandlerEventFromCF): Promise<ImageHand
     const imageRequestInfo = await imageRequest.setup(event);
 
     let headers = getResponseHeaders(false, isAlb);
-    if (!isAccountActive(imageRequestInfo.appId, imageRequestInfo.key)) {
+    const isActive = await isAccountActive(imageRequestInfo.appId, imageRequestInfo.key);
+    if (!isActive) {
       headers["Content-Type"] = "plain/text";
       return {
         statusCode: StatusCodes.FORBIDDEN,

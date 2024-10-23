@@ -93,6 +93,19 @@ export class BackEnd extends Construct {
           ],
         }),
         new PolicyStatement({
+          actions: ["dynamodb:GetItem"],
+          resources: [
+            Stack.of(this).formatArn({
+              service: "dynamodb",
+              resource: `table/${props.tableNamePrefix}-*`,
+            }),
+            Stack.of(this).formatArn({
+              service: "dynamodb",
+              resource: `table/${props.tableNamePrefix}-*/index/*`,
+            }),
+          ],
+        }),
+        new PolicyStatement({
           actions: ["rekognition:DetectFaces", "rekognition:DetectModerationLabels"],
           resources: ["*"],
         }),
